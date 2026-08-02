@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+env/
+build/
+*.egg-info/
+*.egg
+
+# Node
+node_modules/
+npm-debug.log
+
+# Next.js
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# ChromaDB vector store + standards documents (fetched by scripts/download_docs.py)
+data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+*.log.*
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local tooling (never publish)
+reasonix.toml
+.reasonix/
+
+# Stale dev data
+data/farm_records.db
+data/app.log
+
+# Generated stress test report
+stress_report.json
