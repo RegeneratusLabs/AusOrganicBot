@@ -78,6 +78,32 @@ npm run dev
 
 Visit **http://localhost:3000** and start asking questions.
 
+## OpenBMB stack
+
+The project supports the [OpenBMB](https://www.openbmb.cn) ecosystem
+alongside any OpenAI-compatible provider:
+
+- **Reader model** — [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B)
+  (Apache-2.0, 1B-class SOTA, hybrid thinking): set
+  `LLM_BASE_URL=http://localhost:11434/v1` + `LLM_MODEL=minicpm5` after
+  `ollama pull`/`ollama create`. Fine-tune it as the bot's RAG reader —
+  see [`finetune/`](finetune/README.md).
+- **Embeddings** — [MiniCPM-Embedding-Light](https://huggingface.co/openbmb/MiniCPM-Embedding-Light)
+  (440M, 1024-dim, zh+en, dense+sparse): set `EMBEDDING_FAMILY=minicpm`
+  and re-run `scripts/ingest.py`.
+- **RAG framework** — [UltraRAG](https://github.com/OpenBMB/UltraRAG)
+  (Apache-2.0, MCP-based): the same pipeline expressed as an UltraRAG
+  experiment in [`ultrarag/`](ultrarag/README.md) with Milvus.
+
+## Evaluation, dataset, fine-tuning
+
+| Directory | What it does |
+|---|---|
+| [`evals/`](evals/README.md) | Gold-set retrieval eval, threshold sweep, LLM-as-judge answer grading (baseline: recall@5 = 100%, gate accuracy 96%) |
+| [`dataset/`](dataset/README.md) | Chunk → QA pair generation (with refusal negatives), CC-BY-4.0, HF-publishable |
+| [`finetune/`](finetune/README.md) | QLoRA fine-tune of MiniCPM5-1B as the RAG reader + GGUF export + Ollama Modelfile |
+| [`ultrarag/`](ultrarag/README.md) | UltraRAG YAML pipeline (MiniCPM-Embedding-Light + MiniCPM5-1B + Milvus) |
+
 ## Multi-country support
 
 The bot answers from **one country's standards per query** — each country is an isolated, versioned set of documents:
@@ -219,9 +245,13 @@ AusOrganicBot/
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT for the code — see [LICENSE](LICENSE). Derived QA datasets carry
+CC-BY-4.0; standards documents remain the copyright of their issuing
+bodies and are never redistributed (see [SECURITY.md](SECURITY.md) and
+[dataset/README.md](dataset/README.md)).
 
 ---
 
 **Stack:** FastAPI, Next.js 16, ChromaDB, sentence-transformers, any OpenAI-compatible LLM
-**Built for:** Australian organic farmers, certifiers, and industry bodies
+**OpenBMB:** MiniCPM5-1B · MiniCPM-Embedding-Light · UltraRAG
+**Built for:** Australian organic farmers, certifiers, and industry bodies — now multi-country

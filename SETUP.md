@@ -33,13 +33,18 @@ Works with any OpenAI-compatible API. Examples:
 | Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
 | Ollama (local, free) | `http://localhost:11434/v1` | `qwen2.5:0.5b` |
 
-### Local model option (Ollama) — tested
+### Local model option (OpenBMB MiniCPM5-1B via Ollama) — tested
 
-For a fully offline, no-API-key setup:
+Fully offline, no API key, on OpenBMB's 1B-class SOTA model:
 
 ```bash
-ollama pull qwen2.5:0.5b
-ollama serve   # or ensure the Ollama app is running
+# Pull the official GGUF from Hugging Face through Ollama
+ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF
+
+# Create the bot-configured model (template verified working)
+ollama create ausorganicbot-minicpm5 -f /tmp/Modelfile.local
+#   — see finetune/README.md for the Modelfile; the MiniCPM5 template +
+#     stop tokens are required, or generation degenerates
 ```
 
 Then in `backend/.env`:
@@ -47,11 +52,25 @@ Then in `backend/.env`:
 ```bash
 LLM_API_KEY=
 LLM_BASE_URL=http://localhost:11434/v1
-LLM_MODEL=qwen2.5:0.5b
-THINKING_PARAM=off   # Ollama rejects the DeepSeek thinking param (auto handles this)
+LLM_MODEL=ausorganicbot-minicpm5
+THINKING_PARAM=off
 ```
 
-**Expected quality** (tested with qwen2.5:0.5b): answers grounded in the standards with sources on straightforward compliance questions (buffer zones, input approvals, record-keeping). The model is small — expect shorter, less detailed answers than a hosted model, and 6–26 s latency per query on CPU. Use it for development/testing; consider a larger model (`qwen2.5:7b`) or a hosted provider for production.
+**Verified end-to-end**: "How wide should a buffer zone be for broadacre
+cropping?" → *"Section 4.7.19 (Document 1) states that buffer zones should
+be no less than 15 metres for broadacre cropping activities."* (grounded,
+cited, streamed through the app; the base model emits a `<think>` block —
+the fine-tuned variant is SFT'd to skip it, see `finetune/`).
+
+For the fully local OpenBMB stack, also switch embeddings
+(`EMBEDDING_FAMILY=minicpm` + re-ingest) and see `ultrarag/` for the
+UltraRAG pipeline.
+
+**Expected quality**: answers grounded in the standards with sources on
+straightforward compliance questions. The model is small — expect shorter,
+less detailed answers than a hosted model, and 10–40 s latency per query
+on CPU/edge GPU. Use it for offline/demo deployments; use the hosted
+provider or the fine-tuned GGUF for production.
 | Local (LM Studio) | `http://localhost:1234/v1` | `local-model` |
 | Local (Ollama) | `http://localhost:11434/v1` | `llama3` |
 
