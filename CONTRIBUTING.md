@@ -15,8 +15,8 @@ Thanks for your interest in AusOrganicBot! This project aims to make Australian 
 
 ## Development Workflow
 
-- **Backend** (`backend/`): FastAPI + RAG pipeline. Tests are not yet automated — run the backend and verify manually with curl before submitting.
-- **Frontend** (`frontend/`): Next.js chat UI. Verify with `npm run build` before submitting.
+- **Backend** (`backend/`): FastAPI + RAG pipeline. Run the test suite before submitting: `python3 -m pytest backend/tests`
+- **Frontend** (`frontend/`): Next.js chat UI. Verify with `npm run lint && npm run build` before submitting.
 - **Documentation**: Keep `README.md` and `SETUP.md` in sync with any behavior changes.
 
 ## Code Style

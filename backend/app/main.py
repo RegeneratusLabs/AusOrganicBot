@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
@@ -6,7 +6,9 @@ from typing import Optional
 from contextlib import asynccontextmanager
 import json
 import os
+import time
 import logging
+import collections
 
 from app.schemas import (
     QueryRequest,
@@ -15,7 +17,8 @@ from app.schemas import (
     InputCheckResponse,
 )
 from app.rag.pipeline import RAGPipeline
-from app.config import DATA_DIR, CORS_ORIGINS, LOG_LEVEL
+from app.config import DATA_DIR, CORS_ORIGINS, LOG_LEVEL, API_TOKEN, RATE_LIMIT_PER_MINUTE, DEFAULT_COUNTRY
+from app.data.manifest import installed_countries, load_manifest
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
@@ -25,27 +28,47 @@ logging.basicConfig(
 logger = logging.getLogger("ausorganicbot")
 
 _rag: Optional[RAGPipeline] = None
+_rags: dict = {}
 
 
-def get_rag() -> RAGPipeline:
+def get_rag(country: str = DEFAULT_COUNTRY) -> RAGPipeline:
     global _rag
-    if _rag is None:
-        logger.info("Initializing RAG pipeline with DeepSeek...")
-        _rag = RAGPipeline()
-        logger.info("RAG pipeline ready!")
-    return _rag
+    country = country.lower()
+    if country == DEFAULT_COUNTRY and _rag is not None:
+        return _rag
+    pipeline = _rags.get(country)
+    if pipeline is None:
+        logger.info("Initializing RAG pipeline for country '%s'...", country)
+        pipeline = RAGPipeline(country=country)
+        _rags[country] = pipeline
+        if country == DEFAULT_COUNTRY:
+            _rag = pipeline
+        logger.info("RAG pipeline ready (%s)!", country)
+    return pipeline
+
+
+def _known_country(country: str) -> str:
+    """Validate + normalize a country code against installed manifests."""
+    country = country.lower()
+    if country not in installed_countries(DATA_DIR):
+        raise HTTPException(
+            status_code=404,
+            detail=f"No standards installed for country '{country}'. "
+                   "Run scripts/add_country.py to add one.",
+        )
+    return country
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    get_rag()
+    get_rag(DEFAULT_COUNTRY)
     yield
 
 
 app = FastAPI(
     title="AusOrganicBot",
     description="AI assistant for Australian organic certification compliance — open source",
-    version="2.0.0",
+    version="2.1.0",
     lifespan=lifespan,
 )
 
@@ -56,6 +79,50 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------------------------------------------------------------------------
+# Security: optional API token + per-IP rate limiting
+# ---------------------------------------------------------------------------
+
+# Sliding window: ip -> deque of request timestamps
+_rate_window: "collections.defaultdict[str, collections.deque]" = collections.defaultdict(
+    lambda: collections.deque(maxlen=256)
+)
+_RATE_WINDOW_SECONDS = 60.0
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _check_rate_limit(request: Request) -> None:
+    if RATE_LIMIT_PER_MINUTE <= 0:
+        return
+    ip = _client_ip(request)
+    now = time.monotonic()
+    window = _rate_window[ip]
+    while window and now - window[0] > _RATE_WINDOW_SECONDS:
+        window.popleft()
+    if len(window) >= RATE_LIMIT_PER_MINUTE:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded — try again shortly")
+    window.append(now)
+
+
+async def _require_auth(request: Request) -> None:
+    if not API_TOKEN:
+        return
+    auth = request.headers.get("authorization", "")
+    if auth != f"Bearer {API_TOKEN}":
+        raise HTTPException(status_code=401, detail="Invalid or missing API token")
+
+
+async def _guard(request: Request) -> None:
+    await _require_auth(request)
+    _check_rate_limit(request)
 
 
 # ---------------------------------------------------------------------------
@@ -74,10 +141,30 @@ async def status():
     doc_count = rag.vector_store.get_document_count() if rag.vector_store else 0
     llm_healthy = await rag.llm.check_health()
 
+    countries = []
+    for code in installed_countries(DATA_DIR):
+        try:
+            manifest = load_manifest(DATA_DIR, code)
+            countries.append(
+                {
+                    "code": code,
+                    "name": manifest.name,
+                    "language": manifest.language,
+                    "standards": [
+                        {"id": s.id, "name": s.name, "edition": s.edition}
+                        for s in manifest.active_sources
+                    ],
+                }
+            )
+        except Exception as e:
+            logger.warning("Skipping country '%s' in status: %s", code, e)
+
     return {
         "documents_loaded": doc_count,
         "llm_connected": llm_healthy,
         "model": rag.llm.model,
+        "countries": countries,
+        "default_country": DEFAULT_COUNTRY,
     }
 
 
@@ -87,15 +174,20 @@ async def status():
 
 
 @app.post("/api/query", response_model=QueryResponse)
-async def query(request: QueryRequest):
-    rag = get_rag()
+async def query(request: QueryRequest, req: Request):
+    await _guard(req)
+    country = _known_country(request.country)
+    rag = get_rag(country)
     result = await rag.query(question=request.question, top_k=request.top_k)
+    result["country"] = country
     return QueryResponse(**result)
 
 
 @app.post("/api/query/stream")
-async def query_stream(request: QueryRequest):
-    rag = get_rag()
+async def query_stream(request: QueryRequest, req: Request):
+    await _guard(req)
+    country = _known_country(request.country)
+    rag = get_rag(country)
 
     async def generate():
         try:
@@ -109,13 +201,16 @@ async def query_stream(request: QueryRequest):
 
 
 @app.post("/api/input-check", response_model=InputCheckResponse)
-async def check_input(request: InputCheckRequest):
-    rag = get_rag()
+async def check_input(request: InputCheckRequest, req: Request):
+    await _guard(req)
+    country = _known_country(request.country)
+    rag = get_rag(country)
     result = await rag.check_input_approval(
         product_name=request.product_name,
         ingredients=request.ingredients,
         intended_use=request.intended_use,
     )
+    result["country"] = country
     return InputCheckResponse(**result)
 
 
@@ -125,8 +220,9 @@ async def check_input(request: InputCheckRequest):
 
 
 @app.get("/api/sources")
-async def list_sources():
-    rag = get_rag()
+async def list_sources(country: str = DEFAULT_COUNTRY):
+    country = _known_country(country)
+    rag = get_rag(country)
     collection = rag.vector_store.collection
     all_data = collection.get(include=["metadatas"])
 
@@ -139,13 +235,14 @@ async def list_sources():
         if filename not in sources[source]:
             sources[source].append(filename)
 
-    return {"sources": sources}
+    return {"country": country, "sources": sources}
 
 
 @app.get("/api/documents")
-async def list_documents():
+async def list_documents(country: str = DEFAULT_COUNTRY):
     """List all available documents with metadata"""
-    rag = get_rag()
+    country = _known_country(country)
+    rag = get_rag(country)
     collection = rag.vector_store.collection
     all_data = collection.get(include=["metadatas"])
 
@@ -159,6 +256,7 @@ async def list_documents():
             documents[key] = {
                 "source": source,
                 "filename": filename,
+                "edition": metadata.get("edition", ""),
                 "total_pages": metadata.get("total_pages", 0),
                 "total_chunks": 0,
                 "html_available": False,
@@ -170,30 +268,30 @@ async def list_documents():
         if html_path and os.path.exists(html_path):
             documents[key]["html_available"] = True
 
-    return {"documents": list(documents.values())}
+    return {"country": country, "documents": list(documents.values())}
 
 
-@app.get("/api/documents/{source}/html")
-async def get_document_html(source: str):
+@app.get("/api/documents/{country}/{source}/html")
+async def get_document_html(country: str, source: str):
     """Serve the full HTML version of a document"""
-    html_path = DATA_DIR / source / "html" / "full.html"
+    html_path = DATA_DIR / country / source / "html" / "full.html"
 
     if not html_path.exists():
         raise HTTPException(
-            status_code=404, detail=f"HTML document not found for source: {source}"
+            status_code=404, detail=f"HTML document not found for source: {country}/{source}"
         )
 
     return FileResponse(html_path, media_type="text/html")
 
 
-@app.get("/api/documents/{source}/page/{page}")
-async def get_document_page(source: str, page: int):
+@app.get("/api/documents/{country}/{source}/page/{page}")
+async def get_document_page(country: str, source: str, page: int):
     """Get a specific page of a document"""
-    page_path = DATA_DIR / source / "html" / f"page-{page}.html"
+    page_path = DATA_DIR / country / source / "html" / f"page-{page}.html"
 
     if not page_path.exists():
         raise HTTPException(
-            status_code=404, detail=f"Page {page} not found for source: {source}"
+            status_code=404, detail=f"Page {page} not found for source: {country}/{source}"
         )
 
     return FileResponse(page_path, media_type="text/html")
@@ -212,13 +310,19 @@ class ChunkContextResponse(BaseModel):
 
 @app.get("/api/chunk/context")
 async def get_chunk_context(
-    source: str, filename: str, page_number: int, char_start: int, char_end: int
+    source: str,
+    filename: str,
+    page_number: int,
+    char_start: int,
+    char_end: int,
+    country: str = DEFAULT_COUNTRY,
 ):
     """Get chunk context for highlighting in document viewer"""
-    rag = get_rag()
+    country = _known_country(country)
+    rag = get_rag(country)
     collection = rag.vector_store.collection
 
-    html_path = DATA_DIR / source / "html" / "full.html"
+    html_path = DATA_DIR / country / source / "html" / "full.html"
     html_available = html_path.exists()
 
     total_pages = 0
@@ -240,13 +344,13 @@ async def get_chunk_context(
     )
 
 
-@app.get("/api/documents/{source}/pdf")
-async def get_document_pdf(source: str):
+@app.get("/api/documents/{country}/{source}/pdf")
+async def get_document_pdf(country: str, source: str):
     """Serve the original PDF file"""
-    source_dir = DATA_DIR / source
+    source_dir = DATA_DIR / country / source
 
     if not source_dir.exists():
-        raise HTTPException(status_code=404, detail=f"Source not found: {source}")
+        raise HTTPException(status_code=404, detail=f"Source not found: {country}/{source}")
 
     pdf_files = list(source_dir.glob("*.pdf"))
 

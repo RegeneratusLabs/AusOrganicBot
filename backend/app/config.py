@@ -20,11 +20,28 @@ CORS_ORIGINS = os.getenv(
 ).split(",")
 
 CHROMA_PERSIST_DIR = DATA_DIR / "vectorstore"
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
+# Embeddings — two supported families:
+#   all-minilm (default): sentence-transformers/all-MiniLM-L6-v2, 384-dim
+#   minicpm (OpenBMB):    openbmb/MiniCPM-Embedding-Light, 1024-dim, needs
+#                         trust_remote_code + "Query: " instruction prefix
+EMBEDDING_FAMILY = os.getenv("EMBEDDING_FAMILY", "all-minilm").lower()
+EMBEDDING_MODEL = os.getenv(
+    "EMBEDDING_MODEL",
+    "sentence-transformers/all-MiniLM-L6-v2"
+    if EMBEDDING_FAMILY == "all-minilm"
+    else "openbmb/MiniCPM-Embedding-Light",
+)
 
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "512"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "50"))
 TOP_K_RETRIEVAL = int(os.getenv("TOP_K_RETRIEVAL", "5"))
+
+# RAG relevance gate — below this similarity, treat as out-of-scope / conversational
+RELEVANCE_THRESHOLD = float(os.getenv("RELEVANCE_THRESHOLD", "0.50"))
+
+# Default country whose standards are queried when the client doesn't specify one
+DEFAULT_COUNTRY = os.getenv("DEFAULT_COUNTRY", "au")
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
@@ -40,3 +57,13 @@ THINKING_PARAM_MODE = os.getenv("THINKING_PARAM", "auto").lower()
 # Server
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8080"))
+
+# Security / abuse controls
+# If set, requests must include `Authorization: Bearer <API_TOKEN>`.
+API_TOKEN = os.getenv("API_TOKEN", "")
+# Max questions per IP per minute for LLM-backed endpoints (0 = unlimited)
+RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "30"))
+# Request validation caps
+MAX_QUESTION_LENGTH = int(os.getenv("MAX_QUESTION_LENGTH", "500"))
+MAX_TOP_K = int(os.getenv("MAX_TOP_K", "10"))
+MAX_INGREDIENTS = int(os.getenv("MAX_INGREDIENTS", "50"))
