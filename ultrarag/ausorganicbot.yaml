@@ -1,0 +1,39 @@
+# AusOrganicBot RAG pipeline on UltraRAG (OpenBMB)
+#
+# Mirrors the FastAPI/ChromaDB pipeline: retrieve -> relevance gate ->
+# generate (or refuse). Runs with the OpenBMB stack:
+#   - Retrieval:  MiniCPM-Embedding-Light (dense+sparse) via an
+#                 OpenAI-compatible embedding endpoint
+#   - Generation: MiniCPM5-1B via vLLM/SGLang/Ollama (OpenAI-compatible)
+#   - Vector DB:  Milvus
+#
+# Run:  ultrarag run examples/experiments/ausorganicbot.yaml
+# See ultrarag/README.md for the one-time corpus/index setup.
+
+# MCP Server
+servers:
+  benchmark: servers/benchmark
+  retriever: servers/retriever
+  prompt: servers/prompt
+  generation: servers/generation
+  custom: servers/custom
+
+# MCP Client Pipeline
+pipeline:
+- benchmark.get_data
+- retriever.retriever_init
+- generation.generation_init
+- retriever.retriever_search
+- branch:
+    prompt:
+    - prompt.check_passages
+    branches:
+      # Relevance gate passed -> answer from the retrieved excerpts
+      continue:
+      - custom.assign_citation_ids
+      - prompt.qa_rag_boxed
+      - generation.generate
+      - custom.output_extract_from_boxed
+      # Gate failed -> deterministic refusal, no model knowledge allowed
+      stop:
+      - custom.refuse_not_covered
