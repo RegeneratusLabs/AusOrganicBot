@@ -53,5 +53,5 @@ reasonix.toml
 data/farm_records.db
 data/app.log
 
-# Generated stress test report
-stress_report.json
+# Generated stress test reports
+stress_report*.json
