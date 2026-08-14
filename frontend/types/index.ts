@@ -5,7 +5,9 @@ export interface SourceDocument {
     filename?: string;
     page_number?: number;
     chunk_index?: number;
-    [key: string]: any;
+    edition?: string;
+    country_code?: string;
+    [key: string]: unknown;
   };
   score: number;
 }
@@ -17,6 +19,7 @@ export interface QueryResponse {
   model: string;
   processing_time_ms: number;
   reasoning?: string;
+  country?: string;
 }
 
 export interface ChatMessage {
@@ -28,8 +31,23 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
+export interface CountryStandard {
+  id: string;
+  name: string;
+  edition: string;
+}
+
+export interface CountryInfo {
+  code: string;
+  name: string;
+  language: string;
+  standards: CountryStandard[];
+}
+
 export interface SystemStatus {
   documents_loaded: number;
   llm_connected: boolean;
   model: string;
+  countries: CountryInfo[];
+  default_country: string;
 }

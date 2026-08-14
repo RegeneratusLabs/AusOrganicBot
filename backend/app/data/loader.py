@@ -1,20 +1,44 @@
-import os
 import hashlib
+import logging
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Optional
 import pdfplumber
 from PyPDF2 import PdfReader
 
 from app.data.html_converter import HTMLConverter
+from app.data.manifest import CountryManifest, ManifestSource, load_manifest
+
+logger = logging.getLogger("ausorganicbot")
 
 
 class DocumentLoader:
-    """Load and process PDF documents for RAG with page tracking"""
+    """Load and process PDF documents for RAG with page tracking.
 
-    def __init__(self, data_dir: Path, generate_html: bool = True):
+    Documents live under `data/<country>/<source>/*.pdf`. Edition/status
+    metadata comes from the country manifest when present."""
+
+    def __init__(self, data_dir: Path, country: str = "au", generate_html: bool = True):
         self.data_dir = data_dir
+        self.country = country
+        self.country_dir = data_dir / country
         self.generate_html = generate_html
         self.html_converter = HTMLConverter(data_dir) if generate_html else None
+        try:
+            self.manifest: Optional[CountryManifest] = load_manifest(data_dir, country)
+        except FileNotFoundError:
+            self.manifest = None
+        except Exception as e:  # malformed manifest — fall back to globbing
+            logger.warning("Manifest for '%s' failed to parse: %s", country, e)
+            self.manifest = None
+
+    def _manifest_entry(self, pdf_file: Path) -> Optional[ManifestSource]:
+        if not self.manifest:
+            return None
+        rel = str(pdf_file.relative_to(self.country_dir))
+        for source in self.manifest.sources:
+            if source.local_path and Path(source.local_path) == Path(rel):
+                return source
+        return None
 
     def load_pdf(self, pdf_path: Path) -> str:
         """Extract text from PDF using pdfplumber (legacy method)"""
@@ -173,23 +197,35 @@ class DocumentLoader:
 
     def load_all_documents(self) -> List[Dict[str, Any]]:
         """
-        Load all PDFs with page-by-page tracking
+        Load all active PDFs for this country with page-by-page tracking.
 
         Returns list of:
         - chunks: list of chunk dicts with text, page_number, char_start, char_end
-        - metadata: source info, filename, filepath, total_pages, html_path
+        - metadata: source info, filename, filepath, total_pages, html_path,
+                    country_code, edition
         """
+        if not self.country_dir.exists():
+            raise FileNotFoundError(
+                f"Country directory not found: {self.country_dir}. "
+                f"Run: python scripts/add_country.py --country {self.country}"
+            )
+
         all_chunks = []
 
-        for source_dir in self.data_dir.iterdir():
+        for source_dir in sorted(self.country_dir.iterdir()):
             if not source_dir.is_dir():
                 continue
-            if source_dir.name == "vectorstore":
+            if source_dir.name == "html":
                 continue
 
             source_name = source_dir.name
 
-            for pdf_file in source_dir.glob("*.pdf"):
+            for pdf_file in sorted(source_dir.glob("*.pdf")):
+                manifest_entry = self._manifest_entry(pdf_file)
+                if manifest_entry and manifest_entry.status == "superseded":
+                    print(f"Skipping (superseded): {pdf_file.name}")
+                    continue
+
                 print(f"Processing: {pdf_file}")
 
                 try:
@@ -207,6 +243,8 @@ class DocumentLoader:
 
                     page_chunks = self.chunk_pages(pages)
 
+                    edition = manifest_entry.edition if manifest_entry else pdf_file.stem
+
                     for i, chunk in enumerate(page_chunks):
                         chunk_metadata = {
                             "source": source_name,
@@ -219,6 +257,8 @@ class DocumentLoader:
                             "chunk_index": i,
                             "total_chunks": len(page_chunks),
                             "total_pages": total_pages,
+                            "country_code": self.country,
+                            "edition": edition,
                         }
 
                         all_chunks.append(

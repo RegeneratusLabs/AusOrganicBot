@@ -2,28 +2,28 @@
 
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { ChatMessage } from '@/types';
+import { ChatMessage, SystemStatus } from '@/types';
 import { formatSourceName } from '@/lib/utils';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
-
-interface SystemStatus {
-  documents_loaded: number;
-  llm_connected: boolean;
-  model: string;
-}
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [country, setCountry] = useState<string>('au');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/status`)
       .then((r) => r.json())
-      .then(setStatus)
+      .then((s: SystemStatus) => {
+        setStatus(s);
+        if (s.default_country && s.countries?.some((c) => c.code === s.default_country)) {
+          setCountry(s.default_country);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -60,7 +60,7 @@ export default function ChatPage() {
       const res = await fetch(`${API_BASE}/api/query/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: userMsg.content, top_k: 5 }),
+        body: JSON.stringify({ question: userMsg.content, top_k: 5, country }),
       });
       if (!res.ok) throw new Error('Failed to query');
 
@@ -131,6 +131,20 @@ export default function ChatPage() {
           </div>
           {status && (
             <div className="flex items-center gap-4 text-sm">
+              {status.countries && status.countries.length > 1 && (
+                <select
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded-md text-gray-700 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  title="Which country's standards to answer from"
+                >
+                  {status.countries.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code.toUpperCase()} — {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
               <span className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full ${status.llm_connected ? 'bg-green-500' : 'bg-red-500'}`} />
                 {status.llm_connected ? 'Connected' : 'Disconnected'}
@@ -208,6 +222,9 @@ export default function ChatPage() {
                           <span className="font-medium text-green-600">
                             {formatSourceName(s.metadata.source || 'unknown')}
                           </span>
+                          {s.metadata.edition && (
+                            <span className="text-gray-400 ml-2">Ed. {s.metadata.edition}</span>
+                          )}
                           <span className="text-gray-400 ml-2">
                             {s.metadata.filename ? `— ${s.metadata.filename}` : ''}
                           </span>

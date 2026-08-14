@@ -24,7 +24,8 @@ out/
 .env.*.local
 
 # ChromaDB vector store + standards documents (fetched by scripts/download_docs.py)
-data/
+# Root-anchored: backend/app/data/ is source code and must stay tracked.
+/data/
 
 # IDE
 .vscode/
@@ -50,8 +51,8 @@ reasonix.toml
 .reasonix/
 
 # Stale dev data
-data/farm_records.db
-data/app.log
+/data/farm_records.db
+/data/app.log
 
 # Generated stress test reports
 stress_report*.json

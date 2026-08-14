@@ -68,34 +68,53 @@ pip install -r requirements.txt
 python scripts/download_docs.py
 ```
 
+Downloads and sha256-verifies the standards listed in each country's manifest.
+
 Or manually place PDFs in:
 
 | Source | Directory |
 |--------|-----------|
-| NASAA Organic Standards | `data/nasaa/` |
-| ACO Certification Standards | `data/aco/` |
-| National Standard | `data/national/` |
+| NASAA Organic Standards | `data/au/nasaa/` |
+| ACO Certification Standards | `data/au/aco/` |
+| National Standard | `data/au/national/` |
 
 Currently indexed: **NASAA** (120 pages), **ACO** (113 pages), **National Standard editions 3.7 + 3.8** (152 pages).
 
 ## Step 4: Ingest Documents
 
 ```bash
-python scripts/ingest.py
+python scripts/ingest.py               # every installed country
+python scripts/ingest.py --country au  # one country
 ```
 
 This will:
-1. Load all PDFs from the data directories
-2. Split into chunks (512 chars with overlap, minimum 20 chars)
-3. Generate embeddings via all-MiniLM-L6-v2 (runs locally)
-4. Store in ChromaDB for semantic search
+1. Validate the country manifest (schema + sha256 integrity — hard fail on mismatch)
+2. Load all active PDFs from `data/<cc>/<source>/` (superseded editions are skipped)
+3. Split into chunks (512 chars with overlap, minimum 20 chars)
+4. Generate embeddings via all-MiniLM-L6-v2 (runs locally)
+5. Store in a per-country ChromaDB collection
 
-Expected output: `✓ Ingestion complete! Total chunks: ~2400`
+Expected output: `✓ Ingestion complete! Total chunks: ~2000`
 
 To regenerate with HTML page previews:
 ```bash
-python scripts/reindex_with_html.py
+python scripts/reindex_with_html.py --country au
 ```
+
+## Adding a country
+
+```bash
+python scripts/add_country.py --country nz --name "New Zealand"
+```
+
+Then:
+1. Edit `data/nz/manifest.json` — for each standards body, fill in `id`, `name`, `edition`, `url` or `local_path`, `status: "active"`
+2. Place PDFs under `data/nz/<source-id>/` (or set `url` and run `scripts/download_docs.py --country nz`)
+3. `python scripts/update_hashes.py --country nz` — pin sha256 hashes
+4. `python scripts/ingest.py --country nz`
+
+The country appears in the chat UI's selector automatically. Each country can
+override `relevance_threshold` and `embedding_family` in its manifest.
 
 ## Step 5: Start the App
 

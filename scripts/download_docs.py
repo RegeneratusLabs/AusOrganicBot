@@ -1,240 +1,104 @@
 #!/usr/bin/env python3
 """
-Download organic certification standards from official sources.
+Download standards PDFs for installed countries, driven by their manifests.
 
-Sources:
-- NASAA: https://nasaaorganic.org.au
-- ACO: https://aco.net.au
-- SXO: https://sxo.com.au
-- National Standard: agriculture.gov.au
+For every manifest source with a `url` and `local_path`, downloads the file,
+then verifies the declared sha256 (hard failure on mismatch).
+
+Usage:
+    python scripts/download_docs.py                  # all installed countries
+    python scripts/download_docs.py --country au     # a single country
+    python scripts/download_docs.py --force          # overwrite existing files
 """
 
-import httpx
+import argparse
+import sys
 from pathlib import Path
-from bs4 import BeautifulSoup
-import re
+
+import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
+
+from app.config import DATA_DIR
+from app.data.manifest import (
+    installed_countries,
+    load_manifest,
+    sha256_file,
+    verify_manifest,
+)
 
 
-def download_nasaa_standards(output_dir: Path):
-    """Download NASAA Organic & Biodynamic Standard"""
-    print("\nDownloading NASAA standards...")
+def download_source(country: str, source) -> bool:
+    path = DATA_DIR / country / source.local_path
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if path.exists() and not DOWNLOAD_FORCE:
+        print(f"  - [{source.id}] already present: {path.name}")
+        return True
 
-    # NASAA standards page
-    url = "https://nasaaorganic.org.au/certification/standards/"
-
+    print(f"  ↓ [{source.id}] downloading {source.url}")
     try:
-        response = httpx.get(url, timeout=30)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        # Find PDF links
-        pdf_links = []
-        for link in soup.find_all("a", href=True):
-            href = link["href"]
-            if href.endswith(".pdf") or "pdf" in href.lower():
-                pdf_links.append(href)
-
-        print(f"  Found {len(pdf_links)} PDF links")
-
-        # Download PDFs
-        for i, pdf_url in enumerate(pdf_links[:5]):  # Limit to 5 PDFs
-            if not pdf_url.startswith("http"):
-                pdf_url = f"https://nasaaorganic.org.au{pdf_url}"
-
-            print(f"  Downloading: {pdf_url}")
-
-            try:
-                pdf_response = httpx.get(pdf_url, timeout=60)
-                pdf_response.raise_for_status()
-
-                # Extract filename from URL
-                filename = pdf_url.split("/")[-1]
-                if not filename.endswith(".pdf"):
-                    filename = f"nasaa_standard_{i}.pdf"
-
-                output_path = output_dir / filename
-                output_path.write_bytes(pdf_response.content)
-                print(f"    ✓ Saved: {output_path}")
-
-            except Exception as e:
-                print(f"    ✗ Failed: {e}")
-
+        with httpx.stream("GET", source.url, timeout=60, follow_redirects=True) as resp:
+            resp.raise_for_status()
+            with open(path, "wb") as f:
+                for chunk in resp.iter_bytes():
+                    f.write(chunk)
     except Exception as e:
-        print(f"  ✗ Failed to access NASAA: {e}")
-        print(
-            "  Manual download required from: https://nasaaorganic.org.au/certification/standards/"
-        )
+        print(f"    ✗ download failed: {e}")
+        if path.exists() and path.stat().st_size == 0:
+            path.unlink()
+        return False
 
-
-def download_aco_standards(output_dir: Path):
-    """Download ACO Standards"""
-    print("\nDownloading ACO standards...")
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    url = "https://aco.net.au/standards/"
-
-    try:
-        response = httpx.get(url, timeout=30)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        pdf_links = []
-        for link in soup.find_all("a", href=True):
-            href = link["href"]
-            if href.endswith(".pdf") or "pdf" in href.lower():
-                pdf_links.append(href)
-
-        print(f"  Found {len(pdf_links)} PDF links")
-
-        for i, pdf_url in enumerate(pdf_links[:5]):
-            if not pdf_url.startswith("http"):
-                pdf_url = f"https://aco.net.au{pdf_url}"
-
-            print(f"  Downloading: {pdf_url}")
-
-            try:
-                pdf_response = httpx.get(pdf_url, timeout=60)
-                pdf_response.raise_for_status()
-
-                filename = pdf_url.split("/")[-1]
-                if not filename.endswith(".pdf"):
-                    filename = f"aco_standard_{i}.pdf"
-
-                output_path = output_dir / filename
-                output_path.write_bytes(pdf_response.content)
-                print(f"    ✓ Saved: {output_path}")
-
-            except Exception as e:
-                print(f"    ✗ Failed: {e}")
-
-    except Exception as e:
-        print(f"  ✗ Failed to access ACO: {e}")
-        print("  Manual download required from: https://aco.net.au/standards/")
-
-
-def download_sxo_standards(output_dir: Path):
-    """Download SXO Certification Requirements"""
-    print("\nDownloading SXO standards...")
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    url = "https://sxo.com.au/certification/"
-
-    try:
-        response = httpx.get(url, timeout=30)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        pdf_links = []
-        for link in soup.find_all("a", href=True):
-            href = link["href"]
-            if href.endswith(".pdf") or "pdf" in href.lower():
-                pdf_links.append(href)
-
-        print(f"  Found {len(pdf_links)} PDF links")
-
-        for i, pdf_url in enumerate(pdf_links[:5]):
-            if not pdf_url.startswith("http"):
-                pdf_url = f"https://sxo.com.au{pdf_url}"
-
-            print(f"  Downloading: {pdf_url}")
-
-            try:
-                pdf_response = httpx.get(pdf_url, timeout=60)
-                pdf_response.raise_for_status()
-
-                filename = pdf_url.split("/")[-1]
-                if not filename.endswith(".pdf"):
-                    filename = f"sxo_standard_{i}.pdf"
-
-                output_path = output_dir / filename
-                output_path.write_bytes(pdf_response.content)
-                print(f"    ✓ Saved: {output_path}")
-
-            except Exception as e:
-                print(f"    ✗ Failed: {e}")
-
-    except Exception as e:
-        print(f"  ✗ Failed to access SXO: {e}")
-        print("  Manual download required from: https://sxo.com.au")
-
-
-def download_national_standard(output_dir: Path):
-    """Download National Standard for Organic and Biodynamic Produce"""
-    print("\nDownloading National Standard...")
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # Department of Agriculture
-    url = "https://www.agriculture.gov.au/organic-biodynamic/standards"
-
-    try:
-        response = httpx.get(url, timeout=30)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        pdf_links = []
-        for link in soup.find_all("a", href=True):
-            href = link["href"]
-            if href.endswith(".pdf") or "pdf" in href.lower():
-                pdf_links.append(href)
-
-        print(f"  Found {len(pdf_links)} PDF links")
-
-        for i, pdf_url in enumerate(pdf_links[:5]):
-            if not pdf_url.startswith("http"):
-                pdf_url = f"https://www.agriculture.gov.au{pdf_url}"
-
-            print(f"  Downloading: {pdf_url}")
-
-            try:
-                pdf_response = httpx.get(pdf_url, timeout=60)
-                pdf_response.raise_for_status()
-
-                filename = pdf_url.split("/")[-1]
-                if not filename.endswith(".pdf"):
-                    filename = f"national_standard_{i}.pdf"
-
-                output_path = output_dir / filename
-                output_path.write_bytes(pdf_response.content)
-                print(f"    ✓ Saved: {output_path}")
-
-            except Exception as e:
-                print(f"    ✗ Failed: {e}")
-
-    except Exception as e:
-        print(f"  ✗ Failed to access agriculture.gov.au: {e}")
-        print(
-            "  Manual download required from: https://www.agriculture.gov.au/organic-biodynamic"
-        )
+    if source.sha256:
+        actual = sha256_file(path)
+        if actual != source.sha256:
+            print(f"    ✗ sha256 mismatch: expected {source.sha256[:12]}… got {actual[:12]}…")
+            print("      The remote document has changed. Update the manifest (edition + hash)")
+            print("      via scripts/update_hashes.py after confirming the new edition is correct.")
+            return False
+        print(f"    ✓ saved + hash verified: {path.name}")
+    else:
+        print(f"    ✓ saved (no hash declared — run scripts/update_hashes.py): {path.name}")
+    return True
 
 
 def main():
-    """Main download function"""
-    print("=" * 60)
-    print("AusOrganicBot - Standards Document Downloader")
-    print("=" * 60)
+    parser = argparse.ArgumentParser(description="Download standards PDFs per country manifest")
+    parser.add_argument("--country", default=None, help="Download for a single country")
+    parser.add_argument("--force", action="store_true", help="Overwrite existing files")
+    args = parser.parse_args()
 
-    data_dir = Path(__file__).parent.parent / "data"
-    data_dir.mkdir(exist_ok=True)
+    global DOWNLOAD_FORCE
+    DOWNLOAD_FORCE = args.force
 
-    download_nasaa_standards(data_dir / "nasaa")
-    download_aco_standards(data_dir / "aco")
-    download_sxo_standards(data_dir / "sxo")
-    download_national_standard(data_dir / "national")
+    countries = [args.country.lower()] if args.country else installed_countries(DATA_DIR)
+    if not countries:
+        print("No countries installed. Run scripts/add_country.py first.")
+        sys.exit(1)
+
+    ok = True
+    for country in countries:
+        print(f"\n[{country}]")
+        manifest = load_manifest(DATA_DIR, country)
+        for source in manifest.sources:
+            if not source.url or not source.local_path:
+                continue
+            if source.status == "superseded":
+                print(f"  - [{source.id}] superseded — skipped")
+                continue
+            ok = download_source(country, source) and ok
 
     print("\n" + "=" * 60)
-    print("Download complete!")
-    print(f"Documents saved to: {data_dir}")
-    print("\nNext step: Run 'python scripts/ingest.py' to process documents")
-    print("=" * 60)
+    print("Verifying manifests after download...")
+    for country in countries:
+        manifest = load_manifest(DATA_DIR, country)
+        problems = verify_manifest(DATA_DIR, manifest)
+        for p in problems:
+            print(f"  ✗ {p}")
+            ok = False
+    print("✓ Download + verification complete" if ok else "✗ Some problems — see above")
+    print("Next: python scripts/ingest.py --country <cc>")
+    sys.exit(0 if ok else 1)
 
 
 if __name__ == "__main__":
