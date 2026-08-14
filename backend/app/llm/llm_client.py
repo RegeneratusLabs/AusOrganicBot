@@ -133,7 +133,8 @@ class LLMClient:
 
     async def check_health(self) -> bool:
         """Check if the LLM API is reachable and the key is valid."""
-        if not self.api_key:
+        # Local providers (Ollama, LM Studio) need no API key.
+        if not self.api_key and self.provider != "local":
             return False
         try:
             response = await self.client.get(

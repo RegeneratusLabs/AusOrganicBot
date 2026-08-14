@@ -4,7 +4,15 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
-DATA_DIR = BASE_DIR.parent / "data"
+
+# data/ layout:
+#   host dev:  <repo>/data  (sibling of backend/ = BASE_DIR.parent/data)
+#   container: /app/data    (sibling of app/ = BASE_DIR/data)
+# Env override wins in both cases.
+_default_data = BASE_DIR.parent / "data"
+DATA_DIR = Path(
+    os.getenv("DATA_DIR", _default_data if _default_data.exists() else BASE_DIR / "data")
+).resolve()
 
 # LLM — any OpenAI-compatible API
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")

@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
-const BACKEND_PORT = process.env.BACKEND_PORT || "8080";
-const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
+const BACKEND_URL =
+  process.env.BACKEND_URL || `http://localhost:${process.env.BACKEND_PORT || "8080"}`;
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   async rewrites() {
     return [
       {

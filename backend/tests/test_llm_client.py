@@ -94,3 +94,11 @@ def test_health_false_without_key():
     client = make_client(lambda r: httpx.Response(200, json={}))
     client.api_key = ""
     assert asyncio.run(client.check_health()) is False
+
+
+def test_health_true_for_local_provider_without_key():
+    client = make_client(lambda r: httpx.Response(200, json={"data": []}),
+                         base_url="http://localhost:11434/v1")
+    client.api_key = ""
+    assert client.provider == "local"
+    assert asyncio.run(client.check_health()) is True

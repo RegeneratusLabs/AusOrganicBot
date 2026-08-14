@@ -1,0 +1,49 @@
+# AusOrganicBot — full stack
+#
+#   docker compose up --build
+#   frontend: http://localhost:3000  (proxies /api to backend)
+#   backend:  http://localhost:8080
+#
+# Configure the LLM via environment before starting:
+#   LLM_API_KEY=... LLM_BASE_URL=... LLM_MODEL=... docker compose up --build
+#
+# Standards data + vector stores live in ./data (bind-mounted, never baked
+# into the image). Download + ingest inside the backend container:
+#   docker compose exec backend python /app/../scripts/ingest.py --country au
+# or run the scripts on the host — both write to ./data.
+
+services:
+  backend:
+    build:
+      context: backend
+      dockerfile: Dockerfile
+    environment:
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
+      DEFAULT_TEMPERATURE: ${DEFAULT_TEMPERATURE:-0.1}
+      DEFAULT_MAX_TOKENS: ${DEFAULT_MAX_TOKENS:-2048}
+      RELEVANCE_THRESHOLD: ${RELEVANCE_THRESHOLD:-0.50}
+      API_TOKEN: ${API_TOKEN:-}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-30}
+      EMBEDDING_FAMILY: ${EMBEDDING_FAMILY:-all-minilm}
+      DEFAULT_COUNTRY: ${DEFAULT_COUNTRY:-au}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./data:/app/data:z   # :z relabels for SELinux (Fedora/RHEL) hosts
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+      args:
+        # The Next.js server proxies /api -> backend via rewrites
+        BACKEND_URL: http://backend:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
