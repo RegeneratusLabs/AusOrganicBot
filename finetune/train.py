@@ -19,13 +19,22 @@ Setup (isolated venv, does not touch the app environment):
 
 Usage:
 
-    finetune/.venv/bin/python finetune/train.py --data dataset/qa_au_train.jsonl \
-        --output finetune/runs/ausorganicbot-minicpm5 \
+    # Multi-country (all five installed standards sets)
+    finetune/.venv/bin/python finetune/train.py \\
+        --data dataset/qa_au_train.jsonl dataset/qa_us_train.jsonl \\
+               dataset/qa_nz_train.jsonl dataset/qa_eu_train.jsonl \\
+               dataset/qa_uk_train.jsonl \\
+        --output finetune/runs/ausorganicbot-minicpm5 \\
+        --epochs 2 --max-steps 0
+
+    # Single country
+    finetune/.venv/bin/python finetune/train.py --data dataset/qa_au_train.jsonl \\
+        --output finetune/runs/ausorganicbot-minicpm5 \\
         --epochs 2 --max-steps 0
 
 Smoke test (proves the pipeline on any machine):
 
-    finetune/.venv/bin/python finetune/train.py --data dataset/qa_au_train.jsonl \
+    finetune/.venv/bin/python finetune/train.py --data dataset/qa_au_train.jsonl \\
         --output finetune/runs/smoke --max-steps 5 --max-seq-length 1024
 """
 
@@ -51,20 +60,25 @@ SYSTEM_MESSAGE = (
 )
 
 
-def load_pairs(path: Path):
+def load_pairs(paths):
     records = []
-    for line in Path(path).read_text().splitlines():
-        if not line.strip():
+    for path in paths:
+        if not Path(path).exists():
+            print(f"  ! data file missing, skipping: {path}")
             continue
-        rec = json.loads(line)
-        records.append(
-            {
-                "question": rec["question"],
-                "answer": rec["answer"],
-                "context": rec.get("context", ""),
-                "type": rec.get("type", "positive"),
-            }
-        )
+        for line in Path(path).read_text().splitlines():
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            records.append(
+                {
+                    "question": rec["question"],
+                    "answer": rec["answer"],
+                    "context": rec.get("context", ""),
+                    "type": rec.get("type", "positive"),
+                    "country": rec.get("country", "?"),
+                }
+            )
     return records
 
 
@@ -113,7 +127,8 @@ def make_dataset(records, tokenizer, standards_block, max_seq_length):
 
 def main():
     parser = argparse.ArgumentParser(description="QLoRA fine-tune MiniCPM5-1B as AusOrganicBot")
-    parser.add_argument("--data", required=True, help="Path to qa_*_train.jsonl")
+    parser.add_argument("--data", required=True, nargs="+",
+                        help="Path(s) to qa_*_train.jsonl — pass multiple for multi-country training")
     parser.add_argument("--output", required=True, help="Output dir for the adapter + merged model")
     parser.add_argument("--model", default=MODEL_ID)
     parser.add_argument("--epochs", type=int, default=1)
@@ -141,12 +156,17 @@ def main():
         raise SystemExit("Training requires a CUDA GPU (QLoRA 4-bit). "
                          "MiniCPM5-1B needs ~6GB VRAM with --lora-r 8.")
 
-    records = load_pairs(Path(args.data))
+    records = load_pairs(args.data)
+    countries = sorted({r["country"] for r in records})
     n_pos = sum(1 for r in records if r["type"] == "positive")
     n_neg = len(records) - n_pos
-    print(f"Loaded {len(records)} pairs ({n_pos} positives, {n_neg} refusal negatives)")
+    print(f"Loaded {len(records)} pairs ({n_pos} positives, {n_neg} refusal negatives) "
+          f"from countries: {', '.join(countries)}")
 
-    standards_block = "Standards documents for organic certification (see context)."
+    standards_block = (
+        "Organic certification standards for Australia, the United States, "
+        "New Zealand, the European Union, and the United Kingdom (see context)."
+    )
 
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=args.model,

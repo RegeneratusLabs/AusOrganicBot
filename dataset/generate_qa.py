@@ -72,12 +72,86 @@ def parse_generation(content: str):
         return None
 
 
+async def generate_with_retry(llm: LLMClient, prompt: str, temperature: float,
+                              max_tokens: int, attempts: int = 3) -> str:
+    """LLM call with retries/backoff — required for multi-hour runs."""
+    import asyncio as _asyncio
+
+    for attempt in range(attempts):
+        try:
+            out = await llm.generate(prompt=prompt, temperature=temperature, max_tokens=max_tokens)
+            return out["content"]
+        except Exception as e:
+            if attempt == attempts - 1:
+                raise
+            print(f"  ! LLM call failed ({e}); retrying {attempt + 1}/{attempts - 1}...")
+            await _asyncio.sleep(2 * (attempt + 1))
+
+
 async def verify(llm: LLMClient, chunk: str, answer: str) -> bool:
-    out = await llm.generate(
-        prompt=VERIFY_PROMPT.format(chunk=chunk[:1500], answer=answer),
-        temperature=0.0, max_tokens=10,
+    out = await generate_with_retry(
+        llm,
+        VERIFY_PROMPT.format(chunk=chunk[:1500], answer=answer),
+        0.0, 10,
     )
-    return out["content"].strip().lower().startswith("yes")
+    return out.strip().lower().startswith("yes")
+
+
+async def process_chunk(chunk: str, meta: dict, args, llm: LLMClient, out_all: Path):
+    """Generate + verify + append pairs for one chunk. Returns (pos, neg, dropped)."""
+    sig = chunk_signature(meta)
+    chunk_id = f"{args.country}:{sig}::{meta.get('chunk_index', '')}"
+    prompt = GENERATE_PROMPT.format(signature=sig, chunk=chunk[:2500])
+    out = await generate_with_retry(llm, prompt, 0.7, 800)
+    parsed = parse_generation(out)
+    if not parsed or "positives" not in parsed:
+        return 0, 0, 0
+
+    n_pos = n_neg = n_dropped = 0
+    for pair in parsed.get("positives", []):
+        question = (pair.get("question") or "").strip()
+        answer = (pair.get("answer") or "").strip()
+        if not question or not answer:
+            continue
+        if args.verify and not await verify(llm, chunk, answer):
+            n_dropped += 1
+            continue
+        append_jsonl(
+            out_all,
+            {
+                "chunk_id": chunk_id,
+                "country": args.country,
+                "source": meta.get("source"),
+                "filename": meta.get("filename"),
+                "page_number": meta.get("page_number"),
+                "edition": meta.get("edition"),
+                "type": "positive",
+                "question": question,
+                "answer": answer,
+                "context": chunk,
+            },
+        )
+        n_pos += 1
+
+    neg = (parsed.get("negative") or {}).get("question", "").strip()
+    if neg:
+        append_jsonl(
+            out_all,
+            {
+                "chunk_id": chunk_id,
+                "country": args.country,
+                "source": meta.get("source"),
+                "filename": meta.get("filename"),
+                "page_number": meta.get("page_number"),
+                "edition": meta.get("edition"),
+                "type": "negative",
+                "question": neg,
+                "answer": NOT_COVERED_ANSWER,
+                "context": chunk,
+            },
+        )
+        n_neg += 1
+    return n_pos, n_neg, n_dropped
 
 
 async def main():
@@ -85,6 +159,7 @@ async def main():
     parser.add_argument("--country", default="au")
     parser.add_argument("--max-chunks", type=int, default=0, help="0 = all chunks")
     parser.add_argument("--verify", action="store_true", help="LLM-verify each positive pair")
+    parser.add_argument("--workers", type=int, default=4, help="Concurrent LLM calls")
     args = parser.parse_args()
 
     out_all = REPO_ROOT / "dataset" / f"qa_{args.country}.jsonl"
@@ -113,65 +188,32 @@ async def main():
     ]
     llm = LLMClient()
     print(f"Generating pairs for {len(todo)} chunks of '{args.country}' "
-          f"({len(done)} already done, model={llm.model})")
+          f"({len(done)} already done, model={llm.model}, workers={args.workers})")
 
-    n_pos = n_neg = n_verified = n_dropped = 0
-    for i, (chunk, meta) in enumerate(todo, 1):
-        sig = chunk_signature(meta)
-        chunk_id = f"{args.country}:{sig}::{meta.get('chunk_index', '')}"
-        prompt = GENERATE_PROMPT.format(signature=sig, chunk=chunk[:2500])
-        out = await llm.generate(prompt=prompt, temperature=0.7, max_tokens=800)
-        parsed = parse_generation(out["content"])
-        if not parsed or "positives" not in parsed:
-            print(f"[{i}/{len(todo)}] unparsable output, skipping")
-            continue
+    import asyncio as _asyncio
 
-        for pair in parsed.get("positives", []):
-            question = (pair.get("question") or "").strip()
-            answer = (pair.get("answer") or "").strip()
-            if not question or not answer:
-                continue
-            if args.verify and not await verify(llm, chunk, answer):
-                n_dropped += 1
-                continue
-            append_jsonl(
-                out_all,
-                {
-                    "chunk_id": chunk_id,
-                    "country": args.country,
-                    "source": meta.get("source"),
-                    "filename": meta.get("filename"),
-                    "page_number": meta.get("page_number"),
-                    "edition": meta.get("edition"),
-                    "type": "positive",
-                    "question": question,
-                    "answer": answer,
-                    "context": chunk,
-                },
-            )
-            n_pos += 1
-            n_verified += 1 if args.verify else 0
+    sem = _asyncio.Semaphore(args.workers)
 
-        neg = (parsed.get("negative") or {}).get("question", "").strip()
-        if neg:
-            append_jsonl(
-                out_all,
-                {
-                    "chunk_id": chunk_id,
-                    "country": args.country,
-                    "source": meta.get("source"),
-                    "filename": meta.get("filename"),
-                    "page_number": meta.get("page_number"),
-                    "edition": meta.get("edition"),
-                    "type": "negative",
-                    "question": neg,
-                    "answer": NOT_COVERED_ANSWER,
-                    "context": chunk,
-                },
-            )
-            n_neg += 1
+    async def bounded(chunk, meta):
+        async with sem:
+            try:
+                return await process_chunk(chunk, meta, args, llm, out_all)
+            except Exception as e:
+                print(f"  ! chunk failed ({e}): {chunk_signature(meta)} — will retry on re-run")
+                return 0, 0, 0
 
-        print(f"[{i}/{len(todo)}] +{n_pos} -{n_neg} (dropped {n_dropped})")
+    n_pos = n_neg = n_dropped = 0
+    total = len(todo)
+    for i in range(0, total, args.workers):
+        batch = todo[i : i + args.workers]
+        results = await _asyncio.gather(*[bounded(chunk, meta) for chunk, meta in batch])
+        for p, ng, d in results:
+            n_pos += p
+            n_neg += ng
+            n_dropped += d
+        if (i + len(batch)) % 50 < len(batch) or i + len(batch) >= total:
+            print(f"[{min(i + len(batch), total)}/{total}] +{n_pos} -{n_neg} "
+                  f"(dropped {n_dropped})")
 
     # deterministic train/val split (90/10 by question hash)
     if out_all.exists():
