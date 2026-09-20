@@ -125,6 +125,48 @@ see the caveats at the top of `evals/README.md`.
 | Judge correct | 85.5% | judge = answer model |
 | Judge refusal_ok | 12/100 | judge = answer model |
 
+## Observed before/after on the original failure
+
+Measured live against the re-ingested AU collection (local MiniCPM5-1B via
+Ollama, CPU-only). These are single observations on the two questions that
+originally failed, not a benchmark.
+
+| | Before | After |
+|---|---|---|
+| Buffer-zone question | cited **"Section 3.2.9"** (a GMO clause) and invented *"if a farm is under 4 hectares you may waive that requirement"* | cites **3.3.1**, the clause that actually carries the 5-metre rule; *no fabricated exemption*; `verified: true`, `unsupported_citations: []` |
+| Conversion period | cited **ACO p.108** (an IFOAM annex) for an annual-crop rule | cites **NASAA 7.29**, and the retrieved chunk genuinely contains "one year" and "life cycle"; `verified: true` |
+| Top retrieved chunk | `section_number` unpopulated, page-level only | `nasaa sec=3.3.1 clauses=3.3.1,3.3.2,3.3.3 p26 score=0.558` |
+
+The mechanism is visible in the retrieval metadata: the fix is that the clause
+number is now *in the excerpt*, so the reader has something real to cite and
+the verifier has something real to check.
+
+**Still imperfect and worth stating:** on the conversion question the model
+cited NASAA 7.29 when the National Standard §1.2.3 is the more directly
+applicable Australian rule (both were retrieved; 7.29 ranked higher). The
+answer is grounded and verifiable, but the *best* citation was not always
+chosen. That is the attribution problem this layer cannot solve
+deterministically.
+
+## Re-ingest state
+
+All five countries re-ingested with the structural chunker and the current
+embedding model (MiniCPM-Embedding-Light, 1024-dim):
+
+| Country | Chunks | Chunks carrying a section number |
+|---|---|---|
+| AU | 787 | ~74% |
+| NZ | 663 | — |
+| EU | 299 | ~55% |
+| UK | 298 | ~55% |
+| US | 101 | ~61% |
+
+Note for operators: the model dimension guard rebuilds a collection whose stored
+embedding dimension differs from the active model, so switching
+`EMBEDDING_FAMILY` requires a re-ingest — the ingest output says so explicitly.
+A running backend holds the Chroma store open and will block an ingest; stop it
+first.
+
 ## The path to a claimable number
 
 1. Build the human-adjudicated benchmark (`evals/bench/`): curated questions

@@ -148,10 +148,17 @@ Design points:
 
 1. You ask a question (e.g. "What are buffer zone requirements?") and pick a country (defaults to Australia)
 2. The question is converted to a vector embedding using OpenBMB MiniCPM-Embedding-Light (`EMBEDDING_FAMILY=minicpm`, 1024-dim) — fully local
-3. ChromaDB finds the most semantically similar chunks from that country's standards collection
+3. ChromaDB finds the most semantically similar chunks from that country's standards collection. Documents are split along their own structure — section headings and numbered clauses are detected, clauses are never broken in half, and each chunk is prefixed with the section it belongs to, so the clause number the model needs is always present in the excerpt
 4. Those excerpts are injected into the LLM prompt with source + edition citations. If the top match scores below the relevance threshold (0.40 default, per-country overridable), a low-confidence note is added so the model answers only if the excerpts genuinely cover the question
 5. The MiniCPM5-1B reader (fine-tuned) answers from the retrieved context — and declines warmly with the closest related guidance if the context doesn't cover the question. Greetings/thanks/off-topic go to a conversational path. Multi-turn history (last few turns) is included so follow-ups resolve in context
-6. Answers stream in real-time with markdown formatting (bold, lists, code)
+6. **Every answer is then verified deterministically.** Each clause number and quantity the answer cites is checked against the retrieved excerpts; if anything is untraceable the answer is regenerated once with a stricter prompt, and failing that replaced with an honest refusal. See [ACCURACY.md](ACCURACY.md)
+7. Answers stream in real-time with markdown formatting (bold, lists, code). Compliance answers are verified *before* the first token is sent, so an unverifiable rule is never streamed
+
+> **On accuracy claims:** the model does not get the final say on its own
+> citations. `backend/app/rag/citations.py` enforces traceability, and
+> [ACCURACY.md](ACCURACY.md) states exactly what is proven, what is not, and
+> why the existing eval numbers are regression baselines rather than evidence
+> of real-world accuracy. Read it before quoting any figure.
 
 ## API
 
