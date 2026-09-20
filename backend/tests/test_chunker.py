@@ -131,3 +131,38 @@ class TestFallback:
     def test_tiny_fragments_dropped(self):
         chunks = chunk_structured("3.1 A SECTION\n\n3.1.1 ok.", max_chars=500, min_chars=200)
         assert chunks == []
+
+
+class TestRunningHeaderStripping:
+    """Regulation PDFs repeat a header on every page; it must not become chunk text."""
+
+    def _loader(self):
+        from app.data.loader import DocumentLoader
+        from pathlib import Path
+        return DocumentLoader(Path("/tmp"), country="uk", generate_html=False)
+
+    def test_repeated_header_is_removed(self):
+        pages = [
+            {"page_number": i, "text": f"14/08/2026, 18:05 Commission Regulation (EC) No 889/2008\nArticle {i}\nBody text for page {i}.", "char_count": 0}
+            for i in range(1, 9)
+        ]
+        removed = self._loader().strip_running_headers(pages)
+        assert removed == 8
+        for page in pages:
+            assert "Commission Regulation" not in page["text"]
+            assert f"Body text for page {page['page_number']}." in page["text"]
+
+    def test_unique_lines_are_kept(self):
+        pages = [
+            {"page_number": i, "text": f"Distinct opening line {i}\nBody {i}.", "char_count": 0}
+            for i in range(1, 9)
+        ]
+        removed = self._loader().strip_running_headers(pages)
+        assert removed == 0
+        assert "Distinct opening line 3" in pages[2]["text"]
+
+    def test_short_documents_are_not_stripped(self):
+        pages = [
+            {"page_number": i, "text": "Same header\nBody.", "char_count": 0} for i in range(2)
+        ]
+        assert self._loader().strip_running_headers(pages) == 0

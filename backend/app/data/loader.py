@@ -1,5 +1,7 @@
 import hashlib
 import logging
+import re
+from collections import Counter
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import pdfplumber
@@ -63,6 +65,54 @@ class DocumentLoader:
 
         return text.strip()
 
+    # ------------------------------------------------------------------
+    # Page header / footer stripping
+    # ------------------------------------------------------------------
+
+    # A line repeated on at least this fraction of a document's pages is a
+    # running header/footer, not content. Kept relative so short documents are
+    # not stripped by accident.
+    HEADER_PAGE_RATIO = 0.5
+    HEADER_MIN_PAGES = 3
+    HEADER_EDGE_LINES = 3
+
+    @staticmethod
+    def _normalise_header(line: str) -> str:
+        """Collapse a header line so minor differences still compare equal."""
+        return re.sub(r"\s+", " ", line).strip().lower()[:120]
+
+    @classmethod
+    def strip_running_headers(cls, pages: List[Dict[str, Any]]) -> int:
+        """Remove lines repeated at the top/bottom of most pages, in place.
+
+        Regulation PDFs (EU/UK) and government prints (US CFR) repeat a header
+        on every page — for example "14/08/2026, 18:05 Commission Regulation
+        (EC) No 889/2008 ...". Left in, that boilerplate dominates the text of
+        every chunk and pollutes both embeddings and answers.
+
+        Returns the number of lines removed.
+        """
+        if len(pages) < cls.HEADER_MIN_PAGES:
+            return 0
+
+        counts: Counter = Counter()
+        for page in pages:
+            lines = [ln for ln in page.get("text", "").splitlines() if ln.strip()]
+            for line in set(lines[: cls.HEADER_EDGE_LINES]) | set(lines[-cls.HEADER_EDGE_LINES:]):
+                counts[cls._normalise_header(line)] += 1
+
+        threshold = max(cls.HEADER_MIN_PAGES, int(len(pages) * cls.HEADER_PAGE_RATIO))
+        repeated = {key for key, n in counts.items() if n >= threshold and key}
+
+        removed = 0
+        for page in pages:
+            lines = page.get("text", "").splitlines()
+            kept = [ln for ln in lines if cls._normalise_header(ln) not in repeated]
+            removed += len(lines) - len(kept)
+            page["text"] = "\n".join(kept)
+            page["char_count"] = len(page["text"])
+        return removed
+
     def load_pdf_with_pages(self, pdf_path: Path) -> List[Dict[str, Any]]:
         """Extract text from PDF with page-by-page tracking"""
         pages = []
@@ -95,6 +145,11 @@ class DocumentLoader:
                 print(f"Failed to extract text from {pdf_path}: {e2}")
                 raise
 
+        removed = self.strip_running_headers(pages)
+        if removed:
+            logger.info(
+                "Stripped %d repeated header/footer line(s) from %s", removed, pdf_path.name
+            )
         return pages
 
     def chunk_text(

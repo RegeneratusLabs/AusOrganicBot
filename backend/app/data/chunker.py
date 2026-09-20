@@ -56,12 +56,53 @@ _SECTION_WORD_RE = re.compile(
     re.MULTILINE,
 )
 
+# "Article 30 Collection of products and transport to preparation units"
+# (EU / UK regulations) — the article is the citable unit in these documents.
+_ARTICLE_HEADING_RE = re.compile(
+    r"^\s*Article\s+(\d{1,3})\s*"
+    r"([A-Z0-9][0-9A-Za-z ,/&'’\-()]{1,90}?)?\s*$",
+    re.MULTILINE,
+)
+
+# "§ 205.236 Origin of livestock." (US CFR)
+_SECTION_SYMBOL_HEADING_RE = re.compile(
+    r"^\s*§\s*(\d{1,3}(?:\.\d{1,4}){0,2})\s*"
+    r"([A-Z0-9][0-9A-Za-z ,/&'’\-()]{1,90}?)?\s*$",
+    re.MULTILINE,
+)
+
+_HEADING_PATTERNS = (
+    _NUM_HEADING_RE,
+    _SECTION_WORD_RE,
+    _ARTICLE_HEADING_RE,
+    _SECTION_SYMBOL_HEADING_RE,
+)
+
+# A running page header/footer repeated on most pages of a PDF; stripped during
+# extraction so it does not become the dominant text of every chunk.
+_HEADER_MIN_PAGES = 3
+_HEADER_MATCH_RATIO = 0.5
+
 # "3.3.2 Requirements for buffer zones shall be ..." — a numbered clause.
 # The trailing lookahead requires sentence-like text, so a bare heading is not
 # mistaken for a clause.
 _CLAUSE_RE = re.compile(
     r"(?<![\d.])(\d{1,2}(?:\.\d{1,3}){1,3})\s+(?=[A-Z(])",
 )
+
+# US CFR style: "§ 205.236 Origin of livestock." / "§205.236 Origin of livestock."
+_SECTION_CLAUSE_RE = re.compile(
+    r"§\s*(\d{1,3}(?:\.\d{1,4}){0,2})\s+(?=[A-Z(])",
+)
+
+# EU / UK style: "Article 30 Collection of products and transport to preparation
+# units" — the article number is the citable unit in these documents.
+_ARTICLE_CLAUSE_RE = re.compile(
+    r"\bArticle\s+(\d{1,3})\b",
+)
+
+# All clause-numbering conventions, in one place.
+_CLAUSE_PATTERNS = (_CLAUSE_RE, _SECTION_CLAUSE_RE, _ARTICLE_CLAUSE_RE)
 
 _SENTENCE_END_RE = re.compile(r"[.;:!?]\s")
 
@@ -108,14 +149,12 @@ class _Section:
 
 
 def _find_sections(text: str) -> List[_Section]:
-    """Locate section boundaries in document order."""
+    """Locate section boundaries in document order, across all heading styles."""
     found: List[tuple] = []
-    for match in _NUM_HEADING_RE.finditer(text):
-        title = (match.group(2) or "").strip()
-        found.append((match.start(), match.group(1), title or None))
-    for match in _SECTION_WORD_RE.finditer(text):
-        title = (match.group(2) or "").strip()
-        found.append((match.start(), match.group(1).strip(), title or None))
+    for pattern in _HEADING_PATTERNS:
+        for match in pattern.finditer(text):
+            title = (match.group(2) or "").strip()
+            found.append((match.start(), match.group(1).strip(), title or None))
     found.sort(key=lambda item: item[0])
     return [_Section(start=pos, number=num, title=title) for pos, num, title in found]
 
@@ -134,31 +173,38 @@ def _section_for(sections: List[_Section], position: int) -> Optional[_Section]:
 def _split_clauses(text: str, offset: int, max_chars: int = 900) -> List[tuple]:
     """Split text into (clause_number_or_None, start, end) pieces.
 
-    A piece runs from one clause marker up to the next, so ordinary clauses are
-    never divided. A clause longer than `max_chars` is split at sentence
-    boundaries and its number is attached to every resulting piece, so no piece
-    loses the clause it belongs to. Text before the first marker is returned as
-    a single header piece.
+    Supports the clause-numbering conventions used by the installed standards:
+    dotted numbering (NASAA/National), ``§ 205.236`` (US CFR) and ``Article 30``
+    (EU/UK regulations). Returns whichever convention's marker comes next, so
+    nesting or mixed usage does not produce spurious boundaries.
+
+    A piece runs from one marker up to the next, so ordinary clauses are never
+    divided. A clause longer than `max_chars` is split at sentence boundaries
+    and its number is attached to every resulting piece. Text before the first
+    marker is returned as a single header piece.
     """
-    matches = list(_CLAUSE_RE.finditer(text))
-    if not matches:
+    markers: List[tuple] = []
+    for pattern in _CLAUSE_PATTERNS:
+        for match in pattern.finditer(text):
+            markers.append((match.start(), match.group(1)))
+    if not markers:
         return [(None, offset, offset + len(text))]
+    markers.sort(key=lambda item: item[0])
 
     pieces: List[tuple] = []
-    if matches[0].start() > 0:
-        pieces.append((None, offset, offset + matches[0].start()))
+    if markers[0][0] > 0:
+        pieces.append((None, offset, offset + markers[0][0]))
 
-    for i, match in enumerate(matches):
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        clause = match.group(1)
-        if end - match.start() > max_chars:
+    for i, (pos, clause) in enumerate(markers):
+        end = markers[i + 1][0] if i + 1 < len(markers) else len(text)
+        if end - pos > max_chars:
             # Split against the whole text so the returned spans are absolute,
             # then rebase into the caller's coordinate space.
             for piece_start, piece_end in _split_oversized(end, text, max_chars):
                 if piece_end > piece_start:
                     pieces.append((clause, offset + piece_start, offset + piece_end))
         else:
-            pieces.append((clause, offset + match.start(), offset + end))
+            pieces.append((clause, offset + pos, offset + end))
     return pieces
 
 
