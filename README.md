@@ -148,7 +148,7 @@ Design points:
 
 1. You ask a question (e.g. "What are buffer zone requirements?") and pick a country (defaults to Australia)
 2. The question is converted to a vector embedding using OpenBMB MiniCPM-Embedding-Light (`EMBEDDING_FAMILY=minicpm`, 1024-dim) — fully local
-3. ChromaDB finds the most semantically similar chunks from that country's standards collection. Documents are split along their own structure — section headings and numbered clauses are detected, clauses are never broken in half, and each chunk is prefixed with the section it belongs to, so the clause number the model needs is always present in the excerpt
+3. ChromaDB finds the most relevant chunks from that country's standards collection, fusing dense vector search with BM25 lexical search so rare exact terms ("urea", "sulphur", clause numbers) are not smoothed away. Documents are split along their own structure — section headings and numbered clauses are detected, clauses are never broken in half, and each chunk is prefixed with the section it belongs to, so the clause number the model needs is always present in the excerpt
 4. Those excerpts are injected into the LLM prompt with source + edition citations. If the top match scores below the relevance threshold (0.40 default, per-country overridable), a low-confidence note is added so the model answers only if the excerpts genuinely cover the question
 5. The MiniCPM5-1B reader (fine-tuned) answers from the retrieved context — and declines warmly with the closest related guidance if the context doesn't cover the question. Greetings/thanks/off-topic go to a conversational path. Multi-turn history (last few turns) is included so follow-ups resolve in context
 6. **Every answer is then verified deterministically.** Each clause number and quantity the answer cites is checked against the retrieved excerpts; if anything is untraceable the answer is regenerated once with a stricter prompt, and failing that replaced with an honest refusal. See [ACCURACY.md](ACCURACY.md)
@@ -198,6 +198,8 @@ Set these in `backend/.env`:
 | `DEFAULT_MAX_TOKENS` | `2048` | Max response length |
 | `DEFAULT_COUNTRY` | `au` | Country queried when the client doesn't specify one |
 | `EMBEDDING_FAMILY` | `minicpm` | `minicpm` (OpenBMB MiniCPM-Embedding-Light, default) or `all-minilm` |
+| `HYBRID_RETRIEVAL` | `true` | Fuse dense search with BM25 lexical search (see [ACCURACY.md](ACCURACY.md)) |
+| `HYBRID_POOL` | `20` | Candidates per retrieval signal before rank fusion |
 | `RELEVANCE_THRESHOLD` | `0.40` | Relevance gate (below → low-confidence note); per-country override in each manifest |
 | `API_TOKEN` | — | If set, requests require `Authorization: Bearer <token>` |
 | `RATE_LIMIT_PER_MINUTE` | `30` | Max LLM queries per IP per minute (`0` = unlimited) |

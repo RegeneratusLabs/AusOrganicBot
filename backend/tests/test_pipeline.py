@@ -19,6 +19,11 @@ class FakeVectorStore:
     def search(self, query, top_k=5):
         return list(self._results)
 
+    # The pipeline calls search_hybrid; this fake returns fixed results either
+    # way so routing/verification logic can be tested without retrieval.
+    def search_hybrid(self, query, top_k=5, pool=None):
+        return list(self._results)
+
 
 class FakeLLM:
     """Stand-in reader.

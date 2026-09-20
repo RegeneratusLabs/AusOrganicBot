@@ -201,7 +201,7 @@ class RAGPipeline:
         """Process a query — compliance or conversational fallback."""
         start_time = time.time()
 
-        results = self.vector_store.search(query=question, top_k=top_k)
+        results = self.vector_store.search_hybrid(query=question, top_k=top_k)
 
         # --- Routing ---
         # No retrieval at all -> conversational (greetings, thanks, off-topic).
@@ -287,7 +287,7 @@ class RAGPipeline:
         an unverifiable rule. Conversational turns retrieve nothing and stream
         directly.
         """
-        results = self.vector_store.search(query=question, top_k=top_k)
+        results = self.vector_store.search_hybrid(query=question, top_k=top_k)
 
         if not results or (
             results[0]["score"] < self.relevance_threshold

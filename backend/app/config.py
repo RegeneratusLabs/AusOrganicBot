@@ -45,8 +45,18 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "512"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "50"))
 TOP_K_RETRIEVAL = int(os.getenv("TOP_K_RETRIEVAL", "5"))
 
-# RAG relevance gate — below this similarity, treat as out-of-scope / conversational
-RELEVANCE_THRESHOLD = float(os.getenv("RELEVANCE_THRESHOLD", "0.50"))
+# Hybrid retrieval: fuse dense vector search with BM25 lexical search via
+# Reciprocal Rank Fusion. Lexical search recovers rare exact terms ("urea",
+# "sulphur", clause numbers) that a single averaged embedding can smooth away.
+# Disable to fall back to dense-only retrieval.
+HYBRID_RETRIEVAL = os.getenv("HYBRID_RETRIEVAL", "true").lower() == "true"
+# Candidates each signal contributes before fusion; must exceed top_k.
+HYBRID_POOL = int(os.getenv("HYBRID_POOL", "20"))
+
+# RAG relevance gate — below this similarity, treat as out-of-scope / conversational.
+# Default lowered from 0.50 → 0.40: MiniCPM-Embedding-Light scores natural-language
+# questions lower, and the eval sweep showed 0.40–0.45 improves gate F1.
+RELEVANCE_THRESHOLD = float(os.getenv("RELEVANCE_THRESHOLD", "0.40"))
 
 # Default country whose standards are queried when the client doesn't specify one
 DEFAULT_COUNTRY = os.getenv("DEFAULT_COUNTRY", "au")

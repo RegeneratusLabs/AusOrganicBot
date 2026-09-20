@@ -1,7 +1,12 @@
 import logging
 import chromadb
 from typing import List, Dict, Any
-from app.config import CHROMA_PERSIST_DIR, TOP_K_RETRIEVAL
+from app.config import (
+    CHROMA_PERSIST_DIR,
+    TOP_K_RETRIEVAL,
+    HYBRID_RETRIEVAL,
+    HYBRID_POOL,
+)
 from app.rag.embeddings import EmbeddingService
 
 logger = logging.getLogger("orgstandardsbot")
@@ -16,6 +21,9 @@ class VectorStore:
     def __init__(self, country: str = "au", collection_name: str = None):
         self.country = country.lower()
         self.client = chromadb.PersistentClient(path=str(CHROMA_PERSIST_DIR))
+
+        # Cached lexical index for hybrid search; built lazily on first use.
+        self._hybrid = None
 
         self.embedding_service = EmbeddingService()
 
@@ -78,7 +86,11 @@ class VectorStore:
                 print(f"    embedded+stored {end}/{total}", flush=True)
 
     def search(self, query: str, top_k: int = TOP_K_RETRIEVAL) -> List[Dict[str, Any]]:
-        """Search for similar documents"""
+        """Search for similar documents.
+
+        Dense-only by default for the raw store; `search_hybrid` adds lexical
+        fusion. The pipeline uses `search_hybrid` when HYBRID_RETRIEVAL is on.
+        """
         query_embedding = self.embedding_service.embed(query)
 
         results = self.collection.query(
@@ -105,12 +117,30 @@ class VectorStore:
 
         return documents
 
+    def search_hybrid(
+        self, query: str, top_k: int = TOP_K_RETRIEVAL, pool: int = HYBRID_POOL
+    ) -> List[Dict[str, Any]]:
+        """Dense search fused with BM25 lexical search (see app/rag/hybrid.py).
+
+        Falls back to dense-only when hybrid retrieval is disabled, so callers
+        can use this unconditionally.
+        """
+        if not HYBRID_RETRIEVAL:
+            return self.search(query, top_k=top_k)
+
+        if getattr(self, "_hybrid", None) is None:
+            from app.rag.hybrid import HybridRetriever
+
+            self._hybrid = HybridRetriever(self, enable_lexical=True)
+        return self._hybrid.search(query, top_k=top_k, pool=pool)
+
     def get_document_count(self) -> int:
         """Get total number of documents in the store"""
         return self.collection.count()
 
     def clear(self):
         """Clear all documents from the store"""
+        self._hybrid = None  # drop any cached lexical index
         self.client.delete_collection(self.collection.name)
         self.collection = self.client.get_or_create_collection(
             name=self.collection.name,

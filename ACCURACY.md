@@ -82,7 +82,50 @@ containing clause 3.3.2 carries section `3.3` and never claims to be `3.2`.
 Confirmed against the real PDF: clause 3.3.2 now lands in a chunk with
 `section_number='3.3'`.
 
-## Guarantee 3 — compliance answers are verified before they are shown
+## Guarantee 3 — rare terms are not smoothed away by the embedding
+
+**What it does.** Retrieval fuses dense vector search with BM25 lexical search
+using Reciprocal Rank Fusion (`backend/app/rag/hybrid.py`). A dense embedding
+averages a question into a single vector, which loses the specific tokens that
+make a compliance question answerable; lexical search is poor at paraphrase but
+excellent on rare exact terms.
+
+**Evidence.** "Can sulphur be used as a fungicide in organic production?" and
+the other known misses were checked against the re-ingested AU collection. On
+the query *"How many kg of urea can I use?"* dense retrieval returned **no chunk
+containing "urea"** in the top 3 while hybrid retrieval returned the clause that
+does (`NASAA 7.2.2 Prohibited feeds include urea`). Clause-number lookup is also
+rescued: `3.3.2` now surfaces the buffer-zone clause at `p26` ahead of the
+back-of-document index page.
+
+**Why RRF rather than score averaging.** Cosine similarity and BM25 scores are
+not comparable scales, so any weighted sum requires a normalisation choice that
+silently biases one signal. RRF uses only the rankings, so neither signal's
+score distribution can skew the result.
+
+**Additional fix.** Back-of-document index pages are dense with clause numbers
+and page references, so they win any query containing a clause number while
+answering nothing. Demoting them in the lexical ranking alone was not enough —
+they also rank well densely — so the fused order is re-sorted to push index-like
+chunks to the end. Retrieval must never return an index page as the context for
+an answer. They are demoted rather than deleted, so the corpus stays faithful to
+the source.
+
+Measured effect on the re-ingested AU collection:
+
+| Query | Dense-only rank 1 | Hybrid rank 1 |
+|---|---|---|
+| `3.3.2` | NASAA p119 index page | **3.3.1 buffer zones, p26** |
+| "What are the buffer zone requirements…" | mixed | **3.3.1 p26** |
+| "How many kg of urea can I use?" | no chunk containing "urea" in top 3 | **7.2.2 "Prohibited feeds include urea", p60** |
+
+Config: `HYBRID_RETRIEVAL` (default `true`), `HYBRID_POOL` (default `20`).
+Setting `HYBRID_RETRIEVAL=false` restores dense-only behaviour.
+
+**Not yet measured:** the end-to-end effect on the benchmark. These are targeted
+per-query checks, not a recall figure over a human-verified set.
+
+## Guarantee 4 — compliance answers are verified before they are shown
 
 Streaming is a presentation detail, not a licence to emit unverified rules. The
 `/api/query/stream` path generates and verifies the full answer, then emits a
