@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Document ingestion script for AusOrganicBot.
+Document ingestion script for OrgStandardsBot.
 
 Loads PDF documents from data/<country>/<source>/ into per-country vector stores.
 
@@ -57,12 +57,12 @@ def ingest_country(country: str, generate_html: bool = True) -> bool:
     print(f"✓ Loaded {len(documents)} chunks")
 
     all_chunks = [d["text"] for d in documents]
-    all_metadatas = [d["metadata"] for d in documents]
+    all_metadatas = [DocumentLoader.sanitize_metadata(d["metadata"]) for d in documents]
     all_ids = [DocumentLoader.generate_id(d["text"], d["metadata"]) for d in documents]
 
     print(f"Adding {len(all_chunks)} chunks to '{country}' collection...")
     vector_store.add_documents(
-        documents=all_chunks, metadatas=all_metadatas, ids=all_ids
+        documents=all_chunks, metadatas=all_metadatas, ids=all_ids, progress=True
     )
 
     print(f"✓ {country.upper()} ingest complete — {vector_store.get_document_count()} chunks")

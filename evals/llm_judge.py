@@ -29,7 +29,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (  # noqa: E402
     load_questions,
 )
-from app.rag.pipeline import RAGPipeline, NOT_COVERED_ANSWER  # noqa: E402
+from app.rag.pipeline import RAGPipeline  # noqa: E402
+from app.prompts import NOT_COVERED_ANSWER  # noqa: E402
 from app.llm.llm_client import LLMClient  # noqa: E402
 
 JUDGE_PROMPT = """You are an evaluation judge for an organic-standards Q&A bot. Grade the answer below.
@@ -91,7 +92,7 @@ th,td{{border:1px solid #ddd;padding:0.4rem;text-align:left;vertical-align:top}}
 th{{background:#f5f5f5}}tr.bad{{background:#fff0f0}}
 .q{{max-width:16rem}}.a{{max-width:20rem}}.n{{max-width:14rem}}
 </style></head><body>
-<h1>AusOrganicBot judge report — {country.upper()} ({len(rows)} questions, generated {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC})</h1>
+<h1>OrgStandardsBot judge report — {country.upper()} ({len(rows)} questions, generated {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC})</h1>
 <p>Grounded {agg['grounded']:.1%} · Citation {agg['citation']:.1%} · Correct {agg['correct']:.1%}</p>
 <table><tr><th>Question</th><th>Category</th><th>#src</th><th>Grounded</th><th>Cited</th><th>Correct</th><th>Refusal OK</th><th>Answer</th><th>Notes</th></tr>
 {''.join(body)}</table></body></html>"""
@@ -104,6 +105,15 @@ async def main():
     parser = argparse.ArgumentParser(description="LLM-as-judge answer evaluation")
     parser.add_argument("--country", default="au")
     parser.add_argument("--limit", type=int, default=0, help="Max questions (0 = all)")
+    parser.add_argument(
+        "--allow-self-judge",
+        action="store_true",
+        help=(
+            "Permit the answer model to grade its own answers. Off by default: "
+            "self-grading is not independent evaluation, and any result produced "
+            "this way must be labelled as such."
+        ),
+    )
     args = parser.parse_args()
 
     pipeline = RAGPipeline(country=args.country)
@@ -111,6 +121,21 @@ async def main():
     questions = load_questions()
     if args.limit:
         questions = questions[: args.limit]
+
+    # Independence guard: a model grading its own output cannot detect its own
+    # systematic errors. Require an explicitly different judge unless the caller
+    # opts in and accepts that the numbers are self-assessment.
+    if judge.model == pipeline.llm.model and judge.provider == pipeline.llm.provider:
+        message = (
+            f"Judge and answer model are both '{judge.model}' ({judge.provider}). "
+            "This is self-grading and does not measure accuracy independently. "
+            "Point JUDGE_* (or backend/.env) at a different model, or pass "
+            "--allow-self-judge to proceed and label the output as self-assessed."
+        )
+        if not args.allow_self_judge:
+            print(f"✗ {message}")
+            raise SystemExit(2)
+        print(f"⚠ {message}")
 
     print(f"Judging {len(questions)} answers for '{args.country}' "
           f"(answer model={pipeline.llm.model}, judge={judge.model})")

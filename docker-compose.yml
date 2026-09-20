@@ -1,4 +1,4 @@
-# AusOrganicBot — full stack
+# OrgStandardsBot — full stack
 #
 #   docker compose up --build
 #   frontend: http://localhost:3000  (proxies /api to backend)
@@ -17,16 +17,20 @@ services:
     build:
       context: backend
       dockerfile: Dockerfile
+      args:
+        # Bake the same embedding family the container will use at runtime,
+        # so the image does not download a large model on first request.
+        EMBEDDING_FAMILY: ${EMBEDDING_FAMILY:-minicpm}
     environment:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com/v1}
       LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
       DEFAULT_TEMPERATURE: ${DEFAULT_TEMPERATURE:-0.1}
       DEFAULT_MAX_TOKENS: ${DEFAULT_MAX_TOKENS:-2048}
-      RELEVANCE_THRESHOLD: ${RELEVANCE_THRESHOLD:-0.50}
+      RELEVANCE_THRESHOLD: ${RELEVANCE_THRESHOLD:-0.40}
       API_TOKEN: ${API_TOKEN:-}
       RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-30}
-      EMBEDDING_FAMILY: ${EMBEDDING_FAMILY:-all-minilm}
+      EMBEDDING_FAMILY: ${EMBEDDING_FAMILY:-minicpm}
       DEFAULT_COUNTRY: ${DEFAULT_COUNTRY:-au}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes:

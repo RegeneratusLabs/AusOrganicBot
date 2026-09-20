@@ -1,6 +1,6 @@
 import json
 from urllib.parse import urlparse
-from typing import AsyncGenerator, Dict
+from typing import AsyncGenerator, Dict, Optional
 import httpx
 from app.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, DEFAULT_TEMPERATURE, DEFAULT_MAX_TOKENS, THINKING_ENABLED, THINKING_PARAM_MODE
 
@@ -60,11 +60,19 @@ class LLMClient:
         prompt: str,
         temperature: float = DEFAULT_TEMPERATURE,
         max_tokens: int = DEFAULT_MAX_TOKENS,
+        history: Optional[list] = None,
     ) -> Dict[str, str]:
-        """Generate a response from the LLM. Returns {'content': ..., 'reasoning': ...}."""
+        """Generate a response from the LLM. Returns {'content': ..., 'reasoning': ...}.
+
+        ``history`` is an optional list of prior {role: 'user'|'assistant', content} turns,
+        sent as preceding messages so follow-ups resolve against earlier context.
+        """
+        messages = [{"role": "user", "content": prompt}]
+        if history:
+            messages = [{"role": m["role"], "content": m["content"]} for m in history] + messages
         payload = {
             "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
             **self._get_thinking_param(),
@@ -91,11 +99,15 @@ class LLMClient:
         prompt: str,
         temperature: float = DEFAULT_TEMPERATURE,
         max_tokens: int = DEFAULT_MAX_TOKENS,
+        history: Optional[list] = None,
     ) -> AsyncGenerator[Dict[str, str], None]:
         """Stream a response from the LLM. Yields {'type': 'reasoning'|'content', 'chunk': str}."""
+        messages = [{"role": "user", "content": prompt}]
+        if history:
+            messages = [{"role": m["role"], "content": m["content"]} for m in history] + messages
         payload = {
             "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": True,

@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 from app.config import CHROMA_PERSIST_DIR, TOP_K_RETRIEVAL
 from app.rag.embeddings import EmbeddingService
 
-logger = logging.getLogger("ausorganicbot")
+logger = logging.getLogger("orgstandardsbot")
 
 COLLECTION_PREFIX = "organic_standards"
 EMBEDDING_DIM_METADATA = "embedding_dim"
@@ -51,14 +51,31 @@ class VectorStore:
         )
 
     def add_documents(
-        self, documents: List[str], metadatas: List[Dict[str, Any]], ids: List[str]
+        self,
+        documents: List[str],
+        metadatas: List[Dict[str, Any]],
+        ids: List[str],
+        batch_size: int = 128,
+        progress: bool = False,
     ):
-        """Add documents to the vector store"""
-        embeddings = self.embedding_service.embed_batch(documents)
+        """Add documents to the vector store.
 
-        self.collection.add(
-            embeddings=embeddings, documents=documents, metadatas=metadatas, ids=ids
-        )
+        Embedding and writing are done in batches so that a long ingest shows
+        progress and, if interrupted, a partially-populated collection reflects
+        a clear high-water mark rather than an opaque stall.
+        """
+        total = len(documents)
+        for start in range(0, total, batch_size):
+            end = min(start + batch_size, total)
+            embeddings = self.embedding_service.embed_batch(documents[start:end])
+            self.collection.add(
+                embeddings=embeddings,
+                documents=documents[start:end],
+                metadatas=metadatas[start:end],
+                ids=ids[start:end],
+            )
+            if progress:
+                print(f"    embedded+stored {end}/{total}", flush=True)
 
     def search(self, query: str, top_k: int = TOP_K_RETRIEVAL) -> List[Dict[str, Any]]:
         """Search for similar documents"""

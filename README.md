@@ -1,4 +1,4 @@
-# AusOrganicBot 🌱
+# OrgStandardsBot 🌱
 
 **Open-source AI Q&A for Australian organic and biodynamic certification.**
 
@@ -15,8 +15,8 @@ Ask questions about organic farming standards, input approvals, buffer zones, re
 ### 1. Clone and configure
 
 ```bash
-git clone <repo-url>   # e.g. https://github.com/your-org/AusOrganicBot
-cd AusOrganicBot/backend
+git clone <repo-url>   # e.g. https://github.com/your-org/OrgStandardsBot
+cd OrgStandardsBot/backend
 cp .env.example .env
 # Edit .env and set your LLM_API_KEY, LLM_BASE_URL, and LLM_MODEL
 ```
@@ -78,16 +78,16 @@ npm run dev
 
 Visit **http://localhost:3000** and start asking questions.
 
-## OpenBMB stack
+## OpenBMB stack (the default runtime)
 
-The project supports the [OpenBMB](https://www.openbmb.cn) ecosystem
-alongside any OpenAI-compatible provider:
+The project runs fully on the [OpenBMB](https://www.openbmb.cn) ecosystem —
+no hosted LLM required:
 
 - **Reader model** — [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B)
-  (Apache-2.0, 1B-class SOTA, hybrid thinking): set
-  `LLM_BASE_URL=http://localhost:11434/v1` + `LLM_MODEL=minicpm5` after
-  `ollama pull`/`ollama create`. Fine-tune it as the bot's RAG reader —
-  see [`finetune/`](finetune/README.md).
+  (Apache-2.0, 1B-class SOTA, hybrid thinking), fine-tuned as the bot's RAG
+  reader: `ollama create orgstandardsbot -f finetune/Modelfile` (see
+  [`finetune/`](finetune/README.md)). Set
+  `LLM_BASE_URL=http://localhost:11434/v1` + `LLM_MODEL=orgstandardsbot`.
 - **Embeddings** — [MiniCPM-Embedding-Light](https://huggingface.co/openbmb/MiniCPM-Embedding-Light)
   (440M, 1024-dim, zh+en, dense+sparse): set `EMBEDDING_FAMILY=minicpm`
   and re-run `scripts/ingest.py`.
@@ -95,11 +95,15 @@ alongside any OpenAI-compatible provider:
   (Apache-2.0, MCP-based): the same pipeline expressed as an UltraRAG
   experiment in [`ultrarag/`](ultrarag/README.md) with Milvus.
 
+Any OpenAI-compatible API remains supported for evaluation (see
+`backend/.env.example`), but the shipped default is the fully local
+OpenBMB stack.
+
 ## Evaluation, dataset, fine-tuning
 
 | Directory | What it does |
 |---|---|
-| [`evals/`](evals/README.md) | Gold-set retrieval eval, threshold sweep, LLM-as-judge answer grading (baseline: recall@5 = 100%, gate accuracy 96%) |
+| [`evals/`](evals/README.md) | Gold-set retrieval eval, threshold sweep, LLM-as-judge answer grading (silver baseline: AU recall@5 95.7%, gate accuracy 95% — model-labelled, see the caveats in the evals README) |
 | [`dataset/`](dataset/README.md) | Chunk → QA pair generation (with refusal negatives), CC-BY-4.0, HF-publishable |
 | [`finetune/`](finetune/README.md) | QLoRA fine-tune of MiniCPM5-1B as the RAG reader + GGUF export + Ollama Modelfile |
 | [`ultrarag/`](ultrarag/README.md) | UltraRAG YAML pipeline (MiniCPM-Embedding-Light + MiniCPM5-1B + Milvus) |
@@ -125,9 +129,10 @@ data/
 ```bash
 python scripts/add_country.py --country nz --name "New Zealand"
 # 1. edit data/nz/manifest.json — list each standards body + edition
-# 2. place PDFs under data/nz/<source-id>/  (or set "url" and re-run download_docs.py)
-# 3. python scripts/update_hashes.py --country nz   # pin file hashes
-# 4. python scripts/ingest.py --country nz
+# 2. set "license" + "redistribute" per source (see Data licensing below)
+# 3. place PDFs under data/nz/<source-id>/  (or set "url" and re-run download_docs.py)
+# 4. python scripts/update_hashes.py --country nz   # pin file hashes
+# 5. python scripts/ingest.py --country nz
 ```
 
 The country then appears in the chat UI's country selector automatically.
@@ -137,15 +142,15 @@ Design points:
 - **Edition provenance** — every source declares `edition` + `status` (`active` / `superseded`). Superseded editions stay on disk but are excluded from retrieval, and answers cite the edition (e.g. "ACO Standard 2023, Section 4.7.19").
 - **Integrity** — `download_docs.py` and `ingest.py` hard-fail on sha256 mismatch, so a silently changed PDF can't poison answers.
 - **Per-country tuning** — each manifest can override `relevance_threshold` and `embedding_family` (e.g. `minicpm` for OpenBMB's multilingual MiniCPM-Embedding-Light, 1024-dim zh+en) without touching other countries.
-- **Data licensing** — the code is MIT, but standards documents remain the copyright of their issuing bodies. Countries' PDFs are never committed or redistributed; manifests and scripts only.
+- **Data licensing** — the code is MIT, but standards documents remain the copyright of their issuing bodies. Standards PDFs and generated HTML/vector stores are **never committed** to the repo (fetched at provisioning time from each body's official site). Each manifest source declares its `license` and whether this deployment may **redistribute** full copies (`redistribute: true`). Full-copy endpoints — `GET /api/documents/{country}/{source}/pdf`, `/html`, `/page/{page}` — return `403` unless a source declares redistribution rights (e.g. CC-BY, Crown/OGL, public domain). Retrieval and citation always work regardless. See the per-source flags in `data/*/manifest.json` and [SECURITY.md](SECURITY.md).
 
 ## How it works — RAG pipeline
 
 1. You ask a question (e.g. "What are buffer zone requirements?") and pick a country (defaults to Australia)
-2. The question is converted to a vector embedding using `all-MiniLM-L6-v2` (runs locally; swap to OpenBMB MiniCPM-Embedding-Light via `EMBEDDING_FAMILY=minicpm`)
+2. The question is converted to a vector embedding using OpenBMB MiniCPM-Embedding-Light (`EMBEDDING_FAMILY=minicpm`, 1024-dim) — fully local
 3. ChromaDB finds the most semantically similar chunks from that country's standards collection
-4. If the top match scores above the relevance threshold (0.50 default, per-country overridable), those excerpts are injected into the LLM prompt with source + edition citations
-5. If nothing relevant is found, the bot either responds conversationally or — for compliance-shaped questions — refuses with "consult your certifier" rather than answering from model knowledge (hallucination guard)
+4. Those excerpts are injected into the LLM prompt with source + edition citations. If the top match scores below the relevance threshold (0.40 default, per-country overridable), a low-confidence note is added so the model answers only if the excerpts genuinely cover the question
+5. The MiniCPM5-1B reader (fine-tuned) answers from the retrieved context — and declines warmly with the closest related guidance if the context doesn't cover the question. Greetings/thanks/off-topic go to a conversational path. Multi-turn history (last few turns) is included so follow-ups resolve in context
 6. Answers stream in real-time with markdown formatting (bold, lists, code)
 
 ## API
@@ -157,9 +162,10 @@ Design points:
 | `/api/input-check` | POST | Check if a product input is approved |
 | `/api/status` | GET | System status + installed countries + editions |
 | `/api/sources` | GET | Loaded document sources (per country) |
-| `/api/documents` | GET | Document metadata (per country) |
-| `/api/documents/{country}/{source}/html` | GET | Full HTML rendering of a standard |
-| `/api/documents/{country}/{source}/pdf` | GET | Original PDF |
+| `/api/documents` | GET | Document metadata (per country), incl. `license` + `redistributable` |
+| `/api/documents/{country}/{source}/html` | GET | Full HTML rendering of a standard (403 unless source is `redistribute: true`) |
+| `/api/documents/{country}/{source}/page/{page}` | GET | Single page HTML (403 unless `redistribute: true`) |
+| `/api/documents/{country}/{source}/pdf` | GET | Original PDF (403 unless `redistribute: true`) |
 
 ### POST /api/query (streaming)
 
@@ -180,19 +186,19 @@ Set these in `backend/.env`:
 | `LLM_MODEL` | `deepseek-chat` | Model name |
 | `PORT` | `8080` | Backend server port |
 | `THINKING_ENABLED` | `false` | Enable chain-of-thought reasoning |
-| `THINKING_PARAM` | `auto` | Send DeepSeek thinking param: `auto`/`force`/`off` |
-| `DEFAULT_TEMPERATURE` | `0.1` | Lower = more factual |
+| `THINKING_PARAM` | `off` | Send DeepSeek thinking param: `auto`/`force`/`off` (off for OpenBMB) |
+| `DEFAULT_TEMPERATURE` | `0.2` | Lower = more factual |
 | `DEFAULT_MAX_TOKENS` | `2048` | Max response length |
 | `DEFAULT_COUNTRY` | `au` | Country queried when the client doesn't specify one |
-| `EMBEDDING_FAMILY` | `all-minilm` | `all-minilm` (default) or `minicpm` (OpenBMB MiniCPM-Embedding-Light) |
-| `RELEVANCE_THRESHOLD` | `0.50` | Global relevance gate; per-country override in each manifest |
+| `EMBEDDING_FAMILY` | `minicpm` | `minicpm` (OpenBMB MiniCPM-Embedding-Light, default) or `all-minilm` |
+| `RELEVANCE_THRESHOLD` | `0.40` | Relevance gate (below → low-confidence note); per-country override in each manifest |
 | `API_TOKEN` | — | If set, requests require `Authorization: Bearer <token>` |
 | `RATE_LIMIT_PER_MINUTE` | `30` | Max LLM queries per IP per minute (`0` = unlimited) |
 
 ## Project Structure
 
 ```
-AusOrganicBot/
+OrgStandardsBot/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py              # FastAPI server (auth, rate limiting, country routing)
@@ -246,9 +252,13 @@ AusOrganicBot/
 ## License
 
 MIT for the code — see [LICENSE](LICENSE). Derived QA datasets carry
-CC-BY-4.0; standards documents remain the copyright of their issuing
-bodies and are never redistributed (see [SECURITY.md](SECURITY.md) and
-[dataset/README.md](dataset/README.md)).
+CC-BY-4.0. Standards documents remain the copyright of their issuing
+bodies; each manifest source declares its `license` and whether this
+deployment may redistribute full copies (`redistribute`). Sources that
+don't permit redistribution (e.g. the ACO standard) are used for
+retrieval and citation only — the full-copy endpoints return 403. See
+[SECURITY.md](SECURITY.md), [dataset/README.md](dataset/README.md) and
+the per-source flags in `data/*/manifest.json`.
 
 ---
 

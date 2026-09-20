@@ -5,10 +5,11 @@ from typing import List, Dict, Any, Optional
 import pdfplumber
 from PyPDF2 import PdfReader
 
+from app.data.chunker import chunk_structured
 from app.data.html_converter import HTMLConverter
 from app.data.manifest import CountryManifest, ManifestSource, load_manifest
 
-logger = logging.getLogger("ausorganicbot")
+logger = logging.getLogger("orgstandardsbot")
 
 
 class DocumentLoader:
@@ -162,6 +163,42 @@ class DocumentLoader:
 
         return chunks
 
+    def chunk_pages_structurally(
+        self,
+        pages: List[Dict[str, Any]],
+        max_chars: int = 900,
+        min_chars: int = 40,
+    ) -> List[Dict[str, Any]]:
+        """Chunk pages along section/clause boundaries (preferred ingester).
+
+        Chunking is done per page, because that is the unit of page-tracking the
+        document viewer depends on. Within a page, section headings and numbered
+        clauses are detected so that no clause is split and each chunk carries
+        the section number it belongs to. See app/data/chunker.py.
+        """
+        chunks: List[Dict[str, Any]] = []
+
+        for page in pages:
+            page_text = page["text"]
+            page_num = page["page_number"]
+            if not page_text.strip():
+                continue
+
+            for chunk in chunk_structured(page_text, max_chars=max_chars, min_chars=min_chars):
+                chunks.append(
+                    {
+                        "text": chunk.embed_text,
+                        "page_number": page_num,
+                        "char_start": chunk.char_start,
+                        "char_end": chunk.char_end,
+                        "section_number": chunk.section_number,
+                        "section_title": chunk.section_title,
+                        "clause_numbers": chunk.clause_numbers,
+                    }
+                )
+
+        return chunks
+
     def _chunk_single_page(
         self, text: str, chunk_size: int, chunk_overlap: int
     ) -> List[Dict]:
@@ -241,7 +278,7 @@ class DocumentLoader:
                     else:
                         html_path = None
 
-                    page_chunks = self.chunk_pages(pages)
+                    page_chunks = self.chunk_pages_structurally(pages)
 
                     edition = manifest_entry.edition if manifest_entry else pdf_file.stem
 
@@ -259,6 +296,12 @@ class DocumentLoader:
                             "total_pages": total_pages,
                             "country_code": self.country,
                             "edition": edition,
+                            # Structure-aware chunking metadata — lets the reader
+                            # cite a real clause number and lets verification
+                            # confirm the citation exists in the excerpt.
+                            "section_number": chunk.get("section_number") or "",
+                            "section_title": chunk.get("section_title") or "",
+                            "clause_numbers": ",".join(chunk.get("clause_numbers") or []),
                         }
 
                         all_chunks.append(
@@ -273,6 +316,18 @@ class DocumentLoader:
                     print(f"Failed to load {pdf_file}: {e}")
 
         return all_chunks
+
+    @staticmethod
+    def sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Drop values ChromaDB cannot store.
+
+        Chroma's metadata values must be str/int/float/bool. `None` (for example
+        ``html_path`` when HTML generation is disabled) raises
+        ``TypeError: Cannot convert Python object to MetadataValue``, so None
+        values are omitted rather than written. Callers already use ``.get()``
+        for optional fields.
+        """
+        return {k: v for k, v in metadata.items() if v is not None}
 
     @staticmethod
     def generate_id(text: str, metadata: Dict[str, Any]) -> str:

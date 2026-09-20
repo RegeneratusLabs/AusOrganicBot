@@ -77,10 +77,13 @@ def main():
         )
         c["n"] += 1
         c["gated"] += int(gated)
+        # recall is only defined for answerable questions; counting a hit on a
+        # question the gold set marks unanswerable inflated category recall
+        # above 100% (e.g. export_import 5/4 = 125%).
         if answerable:
             c["answerable"] += 1
-        if recall:
-            c["recall_hits"] += 1
+            if recall:
+                c["recall_hits"] += 1
         if correct_gate:
             c["good_gate"] += 1
 

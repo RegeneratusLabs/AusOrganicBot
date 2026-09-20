@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 from app.config import MAX_QUESTION_LENGTH, MAX_TOP_K, MAX_INGREDIENTS
 
@@ -14,6 +14,10 @@ class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=MAX_QUESTION_LENGTH, description="User's compliance question")
     top_k: int = Field(default=5, ge=1, le=MAX_TOP_K, description="Number of documents to retrieve")
     country: str = Field(default="au", pattern=r"^[a-z]{2}$", description="Country code whose standards to query")
+    history: List[Dict[str, str]] = Field(
+        default_factory=list,
+        description="Prior conversation turns as [{role: 'user'|'assistant', content: ...}] for multi-turn context (bounded to the last few turns).",
+    )
 
 
 class QueryResponse(BaseModel):
@@ -26,6 +30,13 @@ class QueryResponse(BaseModel):
     reasoning: Optional[str] = None
     refused: Optional[bool] = None
     country: str = "au"
+    # Deterministic citation verification (see app/rag/citations.py). `verified`
+    # is True when every clause number and quantity in the answer was traceable
+    # to the retrieved excerpts; False means the answer was replaced by an
+    # honest refusal rather than risk an unverifiable rule.
+    verified: Optional[bool] = None
+    unsupported_citations: List[str] = Field(default_factory=list)
+    refusal_reason: Optional[str] = None
 
 
 class InputCheckRequest(BaseModel):

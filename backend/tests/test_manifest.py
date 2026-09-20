@@ -39,6 +39,36 @@ def test_save_and_load_roundtrip(data_dir):
     assert loaded.sources[0].id == "biogro"
 
 
+def test_license_and_redistribute_roundtrip(data_dir):
+    m = CountryManifest(
+        country="au",
+        name="Australia",
+        sources=[
+            ManifestSource(
+                id="national",
+                name="National Standard",
+                edition="3.8",
+                license="CC-BY-4.0",
+                redistribute=True,
+            ),
+            ManifestSource(
+                id="aco",
+                name="ACO Standard",
+                edition="2023",
+                license="All rights reserved",
+            ),
+        ],
+    )
+    write_manifest(data_dir, m)
+    loaded = load_manifest(data_dir, "au")
+    national = loaded.sources[0]
+    assert national.license == "CC-BY-4.0"
+    assert national.redistribute is True
+    # Default when the field is absent: NOT redistributable (safe default)
+    aco = loaded.sources[1]
+    assert aco.redistribute is False
+
+
 def test_installed_countries(data_dir):
     write_manifest(data_dir, CountryManifest(country="au", name="Australia"))
     write_manifest(data_dir, CountryManifest(country="nz", name="New Zealand"))
@@ -138,3 +168,17 @@ def test_verify_manifest_missing_file(data_dir):
 def test_invalid_country_code_rejected():
     with pytest.raises(Exception):
         CountryManifest(country="australia", name="Australia")
+
+
+def test_sanitize_metadata_drops_none_values():
+    """Chroma rejects None metadata values (html_path when HTML is skipped)."""
+    from app.data.loader import DocumentLoader
+
+    cleaned = DocumentLoader.sanitize_metadata(
+        {"source": "national", "html_path": None, "page_number": 3, "empty": "", "flag": False}
+    )
+    assert "html_path" not in cleaned
+    assert cleaned["source"] == "national"
+    assert cleaned["page_number"] == 3
+    assert cleaned["empty"] == ""      # empty string is valid
+    assert cleaned["flag"] is False    # False is valid
