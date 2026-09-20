@@ -287,9 +287,17 @@ class DocumentLoader:
 
         return chunks
 
-    def load_all_documents(self) -> List[Dict[str, Any]]:
+    def load_all_documents(
+        self,
+        only_source: Optional[str] = None,
+        only_file: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Load all active PDFs for this country with page-by-page tracking.
+
+        `only_source` restricts loading to one source directory (e.g. "national")
+        and `only_file` to a single PDF filename; together they let a large
+        country be ingested in several shorter runs.
 
         Returns list of:
         - chunks: list of chunk dicts with text, page_number, char_start, char_end
@@ -309,10 +317,14 @@ class DocumentLoader:
                 continue
             if source_dir.name == "html":
                 continue
+            if only_source and source_dir.name != only_source:
+                continue
 
             source_name = source_dir.name
 
             for pdf_file in sorted(source_dir.glob("*.pdf")):
+                if only_file and pdf_file.name != only_file:
+                    continue
                 manifest_entry = self._manifest_entry(pdf_file)
                 if manifest_entry and manifest_entry.status == "superseded":
                     print(f"Skipping (superseded): {pdf_file.name}")

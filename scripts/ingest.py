@@ -23,7 +23,13 @@ from app.rag.retriever import VectorStore
 from app.config import DATA_DIR
 
 
-def ingest_country(country: str, generate_html: bool = True) -> bool:
+def ingest_country(
+    country: str,
+    generate_html: bool = True,
+    only_source: str = None,
+    only_file: str = None,
+    append: bool = False,
+) -> bool:
     print(f"\n{'=' * 60}")
     print(f"Ingesting country: {country.upper()}")
     print(f"{'=' * 60}")
@@ -44,10 +50,25 @@ def ingest_country(country: str, generate_html: bool = True) -> bool:
     loader = DocumentLoader(DATA_DIR, country=country, generate_html=generate_html)
     vector_store = VectorStore(country=country)
 
-    print(f"  Clearing existing '{country}' vector store collection...")
-    vector_store.clear()
+    if append:
+        # Continue a previous partial ingest instead of restarting it. Useful
+        # for large documents where a single run would exceed the time budget.
+        print(f"  Appending to existing '{country}' collection (not clearing)")
+    else:
+        print(f"  Clearing existing '{country}' vector store collection...")
+        vector_store.clear()
 
-    documents = loader.load_all_documents()
+    if only_source:
+        print(f"  Restricting to source '{only_source}'")
+    if only_file:
+        print(f"  Restricting to file '{only_file}'")
+
+    documents = loader.load_all_documents(only_source=only_source, only_file=only_file)
+    if append:
+        # Re-adding identical ids is idempotent in Chroma, so a resumed run
+        # cannot double-count chunks.
+        existing = vector_store.get_document_count()
+        print(f"  Collection already holds {existing} chunk(s)")
 
     if not documents:
         print(f"✗ No documents found for {country}!")
@@ -73,7 +94,26 @@ def main():
     parser = argparse.ArgumentParser(description="Ingest standards PDFs into the vector store")
     parser.add_argument("--country", default=None, help="Ingest a single country code")
     parser.add_argument("--no-html", action="store_true", help="Skip HTML generation")
+    parser.add_argument(
+        "--source",
+        default=None,
+        help="Ingest only this source directory (e.g. national); implies --append",
+    )
+    parser.add_argument(
+        "--file",
+        default=None,
+        help="Ingest only this PDF filename (implies --append)",
+    )
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Add to the existing collection instead of clearing it first",
+    )
     args = parser.parse_args()
+
+    # A single-source run is part of a larger country ingest, so it must not
+    # wipe the chunks already stored for the other sources.
+    append = args.append or bool(args.source) or bool(args.file)
 
     if args.country:
         countries = [args.country.lower()]
@@ -87,7 +127,13 @@ def main():
 
     results = {}
     for country in countries:
-        results[country] = ingest_country(country, generate_html=not args.no_html)
+        results[country] = ingest_country(
+            country,
+            generate_html=not args.no_html,
+            only_source=args.source,
+            only_file=args.file,
+            append=append,
+        )
 
     print(f"\n{'=' * 60}")
     print("Ingestion summary:")
