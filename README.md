@@ -103,7 +103,7 @@ OpenBMB stack.
 
 | Directory | What it does |
 |---|---|
-| [`evals/`](evals/README.md) | Gold-set retrieval eval, threshold sweep, LLM-as-judge answer grading (silver baseline: AU recall@5 95.7%, gate accuracy 95% — model-labelled, see the caveats in the evals README) |
+| [`evals/`](evals/README.md) | **Human-adjudicated accuracy benchmark** (`make bench-build` / `bench-review` / `bench-score`) plus a self-assessment harness for regression tracking (silver baseline: AU recall@5 95.7%, gate accuracy 95% — model-labelled, see the caveats in the evals README) |
 | [`dataset/`](dataset/README.md) | Chunk → QA pair generation (with refusal negatives), CC-BY-4.0, HF-publishable |
 | [`finetune/`](finetune/README.md) | QLoRA fine-tune of MiniCPM5-1B as the RAG reader + GGUF export + Ollama Modelfile |
 | [`ultrarag/`](ultrarag/README.md) | UltraRAG YAML pipeline (MiniCPM-Embedding-Light + MiniCPM5-1B + Milvus) |

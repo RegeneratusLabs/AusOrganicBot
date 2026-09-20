@@ -96,8 +96,11 @@ usability problem (see below).
 
 ## What is NOT yet proven
 
-- **No human-adjudicated benchmark exists.** Every accuracy figure produced so
-  far is model-generated in some part. This is the single largest gap.
+- **No human has verified a benchmark item yet.** The harness exists and the
+  drafts are built (110 for AU, including 10 adversarial items), but a machine
+  cannot verify its own ground truth — that is the whole point of the design.
+  Until a person runs `make bench-review`, there is still no accuracy number,
+  and `make bench-score` deliberately refuses to produce one.
 - **Retrieval gold labels are page-level, not clause-level**, which inflates
   recall.
 - **No paired fine-tune-vs-base measurement** exists, so there is currently no
@@ -169,13 +172,21 @@ first.
 
 ## The path to a claimable number
 
-1. Build the human-adjudicated benchmark (`evals/bench/`): curated questions
-   with expected answers, authoritative clause references and an inter-grader
-   agreement figure.
-2. Report `citation_precision`, `fabrication_rate`, refusal rate and correct
-   rate against it, with confidence intervals.
-3. Set the release gate at **fabrication_rate = 0** and a stated minimum
+The harness for step 1 is built. What remains is the human review itself:
+
+1. **Verify benchmark items** — `make bench-review COUNTRY=au`. Drafts are in
+   `evals/bench/bench_au.jsonl`: 100 derived from the question bank plus 10
+   adversarial items built to provoke fabrication (the first is the exact
+   "farm under 4 hectares" failure). Each verified item needs a reference
+   answer and the clause numbers it must cite; the reviewer's name is stamped
+   on it.
+2. **Score** — `make bench-score COUNTRY=au`. Reports fabrication rate,
+   citation attribution, refusal behaviour and verdict accuracy, each with a
+   Wilson 95% interval. `--judge` adds semantic correctness and requires a
+   judge model different from the reader.
+3. **Set the release gate** at **fabrication_rate = 0** and a stated minimum
    correct-answer rate, and publish the exact command that reproduces it.
 
 Until step 1 is done, no accuracy claim should be made publicly — including in
-the README or a sales conversation.
+the README or a sales conversation. The scorer enforces this technically: with
+zero verified items it reports `no_verified_items` and no metrics at all.

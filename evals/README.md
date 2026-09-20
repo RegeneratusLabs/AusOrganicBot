@@ -1,8 +1,55 @@
 # Evaluation harness
 
-Answer reliability is the product. Four tools grade the system end-to-end,
-using the 100-question synthetic bank from `scripts/stress_test.py` and
-the same LLM configured in `backend/.env`.
+Answer reliability is the product.
+
+There are two harnesses here, and it matters which one you quote:
+
+| | Human-adjudicated benchmark | Self-assessment harness |
+|---|---|---|
+| Tools | `benchmark.py`, `build_benchmark.py`, `review_benchmark.py`, `score_benchmark.py` | `build_eval_set.py`, `sweep_threshold.py`, `eval_retrieval.py`, `llm_judge.py` |
+| Ground truth | A named human verifies every item | The local model labels and grades itself |
+| Use for | Accuracy claims | Regression tracking only |
+
+**If you are about to put a number in a README, a slide, or a sales
+conversation, it must come from the human-adjudicated benchmark.** The
+self-assessment harness numbers are useful for spotting regressions and nothing
+else — see the caveats below.
+
+## Human-adjudicated benchmark (the real one)
+
+```bash
+make bench-build  COUNTRY=au     # write DRAFT items — not scoreable
+make bench-review COUNTRY=au     # a named human verifies each item
+make bench-score  COUNTRY=au     # report over verified items only
+```
+
+The non-circularity is structural rather than a matter of discipline: an item
+carries `verified_by` and `verified_at` only after a human signs it off, and
+`score_benchmark.py` **refuses to report an accuracy figure if no item is
+verified**. An LLM cannot launder its own suggestions into a headline number
+because the scorer will not read draft items at all.
+
+Reported metrics, each with a Wilson 95% interval:
+
+- **fabrication_rate** — answers containing a clause number or quantity that is
+  not in the retrieved excerpts. Deterministic, no model involved, must be 0.
+- **citation_accuracy** — of answers that cited a clause, the fraction citing a
+  clause the benchmark *expects*. This is the attribution check the
+  presence-only verifier cannot perform.
+- **answered_when_answerable** / **declined_when_unanswerable** — the bot must
+  answer what the standards cover and decline what they do not.
+- **verdict_accuracy** — both of the above combined.
+- **correct_rate** — semantic grading, only with `--judge`, and the judge must
+  be a different model from the reader.
+
+Intervals are reported because a percentage over 20 items is not a precise
+number, and presenting it as one would be the same category of error as the
+circular evaluation this harness replaced.
+
+## Self-assessment harness (regression tracking only)
+
+Grade the system end-to-end using the 100-question synthetic bank from
+`scripts/stress_test.py` and the same LLM configured in `backend/.env`.
 
 ## Pipeline
 
