@@ -6,8 +6,8 @@
 # suppresses the reasoning block.
 #
 # 1. Export the fine-tune: finetune/.venv/bin/python finetune/export_gguf.py \
-#        --model-dir finetune/runs/ausorganicbot-minicpm5/merged \
-#        --output finetune/runs/ausorganicbot-minicpm5/ausorganicbot-minicpm5.Q4_K_M.gguf
+#        --model-dir finetune/runs/orgstandardsbot-minicpm5/merged \
+#        --output finetune/runs/orgstandardsbot-minicpm5/orgstandardsbot-minicpm5.Q4_K_M.gguf
 # 2. From the repo root: ollama create orgstandardsbot -f finetune/Modelfile
 # 3. Point the app at it (backend/.env):
 #        LLM_BASE_URL=http://localhost:11434/v1
@@ -16,7 +16,7 @@
 #
 # (Ollama resolves FROM paths relative to the Modelfile's own directory.)
 
-FROM ./runs/ausorganicbot-minicpm5/ausorganicbot-minicpm5.Q4_K_M.gguf
+FROM ./runs/orgstandardsbot-minicpm5/orgstandardsbot-minicpm5.Q4_K_M.gguf
 
 TEMPLATE "{{ if .System }}<s><|im_start|>system
 {{ .System }}<|im_end|>
