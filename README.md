@@ -84,10 +84,12 @@ The project runs fully on the [OpenBMB](https://www.openbmb.cn) ecosystem —
 no hosted LLM required:
 
 - **Reader model** — [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B)
-  (Apache-2.0, 1B-class SOTA, hybrid thinking), fine-tuned as the bot's RAG
-  reader: `ollama create orgstandardsbot -f finetune/Modelfile` (see
-  [`finetune/`](finetune/README.md)). Set
+  (Apache-2.0, 1B-class SOTA, hybrid thinking), stock, served locally through
+  Ollama with the bot's template and stop tokens:
+  `ollama create orgstandardsbot -f Modelfile`. Set
   `LLM_BASE_URL=http://localhost:11434/v1` + `LLM_MODEL=orgstandardsbot`.
+  Any OpenAI-compatible provider also works — the model is swappable, the
+  retrieval and citation layer is not.
 - **Embeddings** — [MiniCPM-Embedding-Light](https://huggingface.co/openbmb/MiniCPM-Embedding-Light)
   (440M, 1024-dim, zh+en, dense+sparse): set `EMBEDDING_FAMILY=minicpm`
   and re-run `scripts/ingest.py`.
@@ -99,13 +101,11 @@ Any OpenAI-compatible API remains supported for evaluation (see
 `backend/.env.example`), but the shipped default is the fully local
 OpenBMB stack.
 
-## Evaluation, dataset, fine-tuning
+## Evaluation
 
 | Directory | What it does |
 |---|---|
 | [`evals/`](evals/README.md) | **Human-adjudicated accuracy benchmark** (`make bench-build` / `bench-review` / `bench-score`) plus a self-assessment harness for regression tracking (silver baseline: AU recall@5 95.7%, gate accuracy 95% — model-labelled, see the caveats in the evals README) |
-| [`dataset/`](dataset/README.md) | Chunk → QA pair generation (with refusal negatives), CC-BY-4.0, HF-publishable |
-| [`finetune/`](finetune/README.md) | QLoRA fine-tune of MiniCPM5-1B as the RAG reader + GGUF export + Ollama Modelfile |
 | [`ultrarag/`](ultrarag/README.md) | UltraRAG YAML pipeline (MiniCPM-Embedding-Light + MiniCPM5-1B + Milvus) |
 
 ## Multi-country support
@@ -150,7 +150,7 @@ Design points:
 2. The question is converted to a vector embedding using OpenBMB MiniCPM-Embedding-Light (`EMBEDDING_FAMILY=minicpm`, 1024-dim) — fully local
 3. ChromaDB finds the most relevant chunks from that country's standards collection, fusing dense vector search with BM25 lexical search so rare exact terms ("urea", "sulphur", clause numbers) are not smoothed away. Documents are split along their own structure — section headings and numbered clauses are detected, clauses are never broken in half, and each chunk is prefixed with the section it belongs to, so the clause number the model needs is always present in the excerpt
 4. Those excerpts are injected into the LLM prompt with source + edition citations. If the top match scores below the relevance threshold (0.40 default, per-country overridable), a low-confidence note is added so the model answers only if the excerpts genuinely cover the question
-5. The MiniCPM5-1B reader (fine-tuned) answers from the retrieved context — and declines warmly with the closest related guidance if the context doesn't cover the question. Greetings/thanks/off-topic go to a conversational path. Multi-turn history (last few turns) is included so follow-ups resolve in context
+5. The reader model (MiniCPM5-1B, or any OpenAI-compatible model) answers from the retrieved context — and declines warmly with the closest related guidance if the context doesn't cover the question. Greetings/thanks/off-topic go to a conversational path. Multi-turn history (last few turns) is included so follow-ups resolve in context
 6. **Every answer is then verified deterministically.** Each clause number and quantity the answer cites is checked against the retrieved excerpts; if anything is untraceable the answer is regenerated once with a stricter prompt, and failing that replaced with an honest refusal. See [ACCURACY.md](ACCURACY.md)
 7. Answers stream in real-time with markdown formatting (bold, lists, code). Compliance answers are verified *before* the first token is sent, so an unverifiable rule is never streamed
 
@@ -260,14 +260,13 @@ OrgStandardsBot/
 
 ## License
 
-MIT for the code — see [LICENSE](LICENSE). Derived QA datasets carry
-CC-BY-4.0. Standards documents remain the copyright of their issuing
-bodies; each manifest source declares its `license` and whether this
-deployment may redistribute full copies (`redistribute`). Sources that
-don't permit redistribution (e.g. the ACO standard) are used for
-retrieval and citation only — the full-copy endpoints return 403. See
-[SECURITY.md](SECURITY.md), [dataset/README.md](dataset/README.md) and
-the per-source flags in `data/*/manifest.json`.
+MIT for the code — see [LICENSE](LICENSE). Standards documents remain the
+copyright of their issuing bodies; each manifest source declares its
+`license` and whether this deployment may redistribute full copies
+(`redistribute`). Sources that don't permit redistribution (e.g. the ACO
+standard) are used for retrieval and citation only — the full-copy
+endpoints return 403. See [SECURITY.md](SECURITY.md) and the per-source
+flags in `data/*/manifest.json`.
 
 ---
 

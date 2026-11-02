@@ -60,8 +60,8 @@ def _split_for_stream(text: str, size: int = _STREAM_PIECE_CHARS) -> List[str]:
     return pieces
 
 # ---------------------------------------------------------------------------
-# Prompts & constants live in app/prompts.py (dependency-free, so that
-# finetune/train.py can import the exact production templates).
+# Prompts & constants live in app/prompts.py (dependency-free: those templates
+# are the single source of truth for what the app sends).
 # ---------------------------------------------------------------------------
 
 
@@ -207,7 +207,7 @@ class RAGPipeline:
         # No retrieval at all -> conversational (greetings, thanks, off-topic).
         # Below-threshold + non-compliance -> conversational too.
         # Below-threshold + compliance-shaped -> RAG with a low-confidence note:
-        #   the fine-tuned model answers from context if it actually covers the
+        #   the reader answers from context if it actually covers the
         #   question, or declines warmly (no canned refusal, no hallucination).
         if not results or (
             results[0]["score"] < self.relevance_threshold
@@ -230,7 +230,7 @@ class RAGPipeline:
                 "processing_time_ms": (time.time() - start_time) * 1000,
             }
 
-        # --- RAG path (the fine-tuned model is SFT'd to answer from retrieved
+        # --- RAG path (the reader is prompted to answer from retrieved
         # context, or refuse honestly when it doesn't cover the question) ---
         context_parts = []
         sources = []

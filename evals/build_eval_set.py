@@ -10,7 +10,7 @@ For each question from the stress bank:
 
 The output is the retrieval benchmark used by eval_retrieval.py and
 sweep_threshold.py, and is structured for publishing as a Hugging Face
-dataset (CC-BY-4.0 — see dataset/README.md).
+dataset (CC-BY-4.0; the licence flags live in data/*/manifest.json).
 
 Resumable: questions already present in the gold file are skipped.
 

@@ -1,7 +1,8 @@
 """Prompt templates and refusal constants for the RAG pipeline.
 
-Kept dependency-free so that tooling outside the app environment
-(e.g. finetune/train.py) can import the exact production templates.
+Kept dependency-free so they can be imported from outside the app environment,
+and read without pulling in the retrieval stack. These templates are the single
+source of truth for what the app sends.
 """
 
 NOT_COVERED_ANSWER = (

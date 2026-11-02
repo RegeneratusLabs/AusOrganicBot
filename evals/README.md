@@ -142,5 +142,5 @@ The judge flags low-scoring rows. The intended loop:
 
 `evals/data/gold_<cc>.jsonl` is structured for the Hugging Face Hub
 (CC-BY-4.0): question + category + answerable + gold chunk references —
-no copyrighted text is included. See `dataset/dataset_card.md` for the
+no copyrighted text is included. See the per-source `license` flags for the
 publishing checklist.

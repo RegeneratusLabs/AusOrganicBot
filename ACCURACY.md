@@ -146,16 +146,12 @@ usability problem (see below).
   and `make bench-score` deliberately refuses to produce one.
 - **Retrieval gold labels are page-level, not clause-level**, which inflates
   recall.
-- **No paired fine-tune-vs-base measurement** exists, so there is currently no
-  evidence the fine-tuned reader outperforms the base model. The fine-tune's
-  purpose is output-format and refusal discipline, not knowledge.
 - **Latency is not production-grade.** Measured on 16 CPU cores with no GPU:
   16 s for a conversational reply, ~57–77 s for compliance questions, and up to
   99 s in earlier runs. The model has a 4096-token context window.
-- **The `redistribute` licensing flags are honoured at the API layer** (full
-  copies return 403 where a source forbids redistribution), but the derived QA
-  dataset still embeds verbatim standards text; `dataset/strip_context.py` must
-  be run before any dataset publication.
+- **The `redistribute` licensing flags are honoured at the API layer** — full
+  copies return 403 where a source forbids redistribution — but they do not stop
+  excerpts of that source reaching the model, which is what citation requires.
 
 ## Self-assessment baseline (regression only)
 

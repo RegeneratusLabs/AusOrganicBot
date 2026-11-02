@@ -66,15 +66,6 @@ stress_report*.json
 # Generated eval artifacts (regenerable: evals/run_all.py)
 /evals/data/
 
-# Generated QA datasets (regenerable: dataset/generate_qa.py)
-/dataset/qa_*.jsonl
-
-# Fine-tuning artifacts
-/finetune/.venv/
-/finetune/runs/
-/finetune/llama.cpp/
-unsloth_compiled_cache/
-
 # Local HF model cache (workspace-persistent; never commit)
 .hf_cache/
 

@@ -42,10 +42,9 @@ Fully offline, no API key, on OpenBMB's 1B-class SOTA model:
 ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF
 
 # Create the bot-configured model (template verified working)
-ollama create orgstandardsbot -f finetune/Modelfile          # fine-tuned reader
-ollama create orgstandardsbot-minicpm5 -f finetune/Modelfile.base  # base model
-#   — see finetune/README.md for the Modelfile; the MiniCPM5 template +
-#     stop tokens are required, or generation degenerates
+ollama create orgstandardsbot -f Modelfile
+#   — the MiniCPM5 template + stop tokens are required, or generation
+#     degenerates. See the comments in Modelfile.
 ```
 
 Then in `backend/.env`:
@@ -61,8 +60,8 @@ EMBEDDING_FAMILY=minicpm   # MiniCPM-Embedding-Light (OpenBMB) — then re-inges
 **Verified end-to-end**: "How wide should a buffer zone be for broadacre
 cropping?" → *"Section 4.7.19 (Document 1) states that buffer zones should
 be no less than 15 metres for broadacre cropping activities."* (grounded,
-cited, streamed through the app; the base model emits a `<think>` block —
-the fine-tuned variant is SFT'd to skip it, see `finetune/`).
+cited, streamed through the app. The model emits a ` thinking` block; set
+`THINKING_PARAM=off` to suppress it at the client.)
 
 For the fully local OpenBMB stack, also switch embeddings
 (`EMBEDDING_FAMILY=minicpm` + re-ingest) and see `ultrarag/` for the
@@ -71,8 +70,8 @@ UltraRAG pipeline.
 **Expected quality**: answers grounded in the standards with sources on
 straightforward compliance questions. The model is small — expect shorter,
 less detailed answers than a hosted model, and 10–40 s latency per query
-on CPU/edge GPU. Use it for offline/demo deployments; use the hosted
-provider or the fine-tuned GGUF for production.
+on CPU/edge GPU. Use it for offline/demo deployments; use a hosted
+provider for production latency.
 | Local (LM Studio) | `http://localhost:1234/v1` | `local-model` |
 | Local (Ollama) | `http://localhost:11434/v1` | `llama3` |
 

@@ -1,8 +1,0 @@
-# Fine-tuning environment (isolated venv)
-
-# Unsloth pins its own torch build; keep this venv separate from the app env.
-unsloth>=2026.8
-trl>=0.9.0
-datasets>=2.16.0
-accelerate>=0.27.0
-peft>=0.10.0

@@ -1,8 +1,12 @@
-# Base-model Modelfile: official MiniCPM5-1B GGUF, bot-configured.
+# Modelfile: official MiniCPM5-1B GGUF, configured as the OrgStandardsBot reader.
 # Verified: grounded, cited answers through the app (see SETUP.md).
 #
 #   ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF
-#   ollama create orgstandardsbot-minicpm5 -f finetune/Modelfile.base
+#   ollama create orgstandardsbot -f Modelfile
+#
+# The reader is the stock base model. RAG is the product — the retrieval layer,
+# the citation contract and the refusal behaviour live in the app, not in the
+# weights.
 
 FROM hf.co/openbmb/MiniCPM5-1B-GGUF
 
