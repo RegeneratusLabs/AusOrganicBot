@@ -1,8 +1,8 @@
-# Running AusOrganicBot on UltraRAG (OpenBMB)
+# Running OrgStandardsBot on UltraRAG (OpenBMB)
 
 [UltraRAG](https://github.com/OpenBMB/UltraRAG) (Apache-2.0, THUNLP +
 OpenBMB + NEUIR) is the OpenBMB RAG framework — MCP servers composed into
-YAML pipelines, with a built-in evaluation system. `ausorganicbot.yaml`
+YAML pipelines, with a built-in evaluation system. `orgstandardsbot.yaml`
 re-implements the app's core logic (retrieve → relevance gate → generate /
 refuse) on UltraRAG with the OpenBMB model stack.
 
@@ -31,12 +31,12 @@ vllm serve openbmb/MiniCPM5-1B --port 8000
 #    see https://ultrarag.openbmb.cn/pages/en/ui/prepare
 
 # 5. Copy this directory into UltraRAG's examples tree and index the corpus
-cp ../AusOrganicBot/ultrarag/ausorganicbot.yaml examples/experiments/
+cp ../OrgStandardsBot/ultrarag/orgstandardsbot.yaml examples/experiments/
 #    Index data/<cc>/html/full.html (or the PDFs) into Milvus with the
 #    retriever_init/retriever_index tools (see examples/demos/milvus_index.yaml)
 
 # 6. Run the pipeline
-ultrarag run examples/experiments/ausorganicbot.yaml
+ultrarag run examples/experiments/orgstandardsbot.yaml
 ```
 
 ## Parameter notes

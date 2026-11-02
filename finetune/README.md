@@ -1,4 +1,4 @@
-# Fine-tuning MiniCPM5-1B as the AusOrganicBot RAG reader
+# Fine-tuning MiniCPM5-1B as the OrgStandardsBot RAG reader
 
 This directory turns the QA dataset (`dataset/`) into a small,
 self-hosted compliance-answering model built on OpenBMB's **MiniCPM5-1B**
@@ -32,18 +32,18 @@ finetune/.venv/bin/python finetune/train.py \
 # 4. Full run (~1-2h on an RTX 3060 6GB with the settings below)
 finetune/.venv/bin/python finetune/train.py \
     --data dataset/qa_au_train.jsonl \
-    --output finetune/runs/ausorganicbot-minicpm5 \
+    --output finetune/runs/orgstandardsbot-minicpm5 \
     --epochs 2 --lora-r 8 --batch-size 1 --grad-accum 8 --max-seq-length 1536
 
 # 5. Export GGUF + serve via Ollama
 finetune/.venv/bin/python finetune/export_gguf.py \
-    --model-dir finetune/runs/ausorganicbot-minicpm5/merged \
-    --output finetune/runs/ausorganicbot-minicpm5/ausorganicbot-minicpm5.Q4_K_M.gguf
-ollama create ausorganicbot -f finetune/Modelfile
+    --model-dir finetune/runs/orgstandardsbot-minicpm5/merged \
+    --output finetune/runs/orgstandardsbot-minicpm5/orgstandardsbot-minicpm5.Q4_K_M.gguf
+ollama create orgstandardsbot -f finetune/Modelfile
 
 # 6. Point the app at the local model (backend/.env)
 #    LLM_BASE_URL=http://localhost:11434/v1
-#    LLM_MODEL=ausorganicbot
+#    LLM_MODEL=orgstandardsbot
 #    THINKING_PARAM=off
 
 # 7. Evaluate the fine-tune vs the hosted baseline

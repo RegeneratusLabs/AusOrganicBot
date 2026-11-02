@@ -37,6 +37,42 @@ def test_generate_returns_content_and_reasoning():
     assert result == {"content": "the answer", "reasoning": "the thinking"}
 
 
+def test_generate_sends_history_messages():
+    """Multi-turn: prior turns are sent as messages before the current prompt."""
+    def handler(request):
+        body = __import__("json").loads(request.read())
+        assert body["messages"] == [
+            {"role": "user", "content": "What about buffer zones?"},
+            {"role": "assistant", "content": "Section 4.7.19 covers that."},
+            {"role": "user", "content": "and how wide for broadacre?"},
+        ]
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "15 metres"}}]},
+        )
+
+    client = make_client(handler)
+    result = asyncio.run(client.generate(
+        "and how wide for broadacre?",
+        history=[
+            {"role": "user", "content": "What about buffer zones?"},
+            {"role": "assistant", "content": "Section 4.7.19 covers that."},
+        ],
+    ))
+    assert result["content"] == "15 metres"
+
+
+def test_generate_without_history_sends_single_message():
+    def handler(request):
+        body = __import__("json").loads(request.read())
+        assert body["messages"] == [{"role": "user", "content": "q"}]
+        return httpx.Response(200, json={"choices": [{"message": {"content": "a"}}]})
+
+    client = make_client(handler)
+    asyncio.run(client.generate("q"))
+    assert True
+
+
 def test_generate_raises_on_http_error():
     def handler(request):
         return httpx.Response(500, text="boom")

@@ -52,6 +52,13 @@ export default function ChatPage() {
       timestamp: new Date(),
     };
 
+    // Build prior-turn history (excluding this new user message itself) for
+    // multi-turn context: keep the last 12 messages (6 user/assistant pairs).
+    const history = messages
+      .slice(-12)
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .map((m) => ({ role: m.role, content: m.content }));
+
     setMessages(prev => [...prev, userMsg, assistantMsg]);
     setInput('');
     setIsLoading(true);
@@ -60,7 +67,7 @@ export default function ChatPage() {
       const res = await fetch(`${API_BASE}/api/query/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: userMsg.content, top_k: 5, country }),
+        body: JSON.stringify({ question: userMsg.content, top_k: 5, country, history }),
       });
       if (!res.ok) throw new Error('Failed to query');
 
@@ -126,7 +133,7 @@ export default function ChatPage() {
         <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🌱</span>
-            <h1 className="text-lg font-bold text-gray-800">AusOrganicBot</h1>
+            <h1 className="text-lg font-bold text-gray-800">OrgStandardsBot</h1>
             <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Open Source</span>
           </div>
           {status && (
@@ -161,7 +168,7 @@ export default function ChatPage() {
               <div className="text-center py-16">
                 <div className="text-5xl mb-4">🌿</div>
                 <h2 className="text-xl font-semibold text-gray-700 mb-2">
-                  Australian Organic Certification Q&A
+                  Organic Certification Q&A
                 </h2>
                 <p className="text-gray-500 mb-6 max-w-md mx-auto">
                   Ask questions about organic farming standards, input approvals, buffer zones, record-keeping, and certification requirements.

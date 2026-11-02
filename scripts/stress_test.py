@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Synthetic stress test for AusOrganicBot RAG pipeline.
+Synthetic stress test for OrgStandardsBot RAG pipeline.
 
 Runs a bank of questions across compliance categories and records:
 - retrieval scores (are relevant chunks found?)
@@ -176,7 +176,7 @@ def run_question(client: httpx.Client, backend: str, q: Dict[str, str], country:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Stress test AusOrganicBot RAG pipeline")
+    parser = argparse.ArgumentParser(description="Stress test OrgStandardsBot RAG pipeline")
     parser.add_argument("--backend", default=DEFAULT_BACKEND, help="Backend base URL")
     parser.add_argument("--country", default="au", help="Country code to query (default: au)")
     parser.add_argument("--output", default="stress_report.json", help="Output report file")

@@ -1,0 +1,20 @@
+{
+  "country": "us",
+  "name": "United States",
+  "language": "en",
+  "embedding_family": "all-minilm",
+  "sources": [
+    {
+      "id": "nop",
+      "name": "USDA National Organic Program Regulations (7 CFR Part 205)",
+      "edition": "2025",
+      "url": "https://www.govinfo.gov/content/pkg/CFR-2025-title7-vol3/pdf/CFR-2025-title7-vol3-part205.pdf",
+      "local_path": "nop/cfr-title7-part205.pdf",
+      "sha256": "ec1590c306c1500acc8957dd5c54df9edb6c99660157342967423c8ba540215e",
+      "status": "active",
+      "effective_date": "2025-01-01",
+      "license": "Public domain (US federal government work)",
+      "redistribute": true
+    }
+  ]
+}

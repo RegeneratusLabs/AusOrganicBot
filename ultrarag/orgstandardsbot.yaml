@@ -1,4 +1,4 @@
-# AusOrganicBot RAG pipeline on UltraRAG (OpenBMB)
+# OrgStandardsBot RAG pipeline on UltraRAG (OpenBMB)
 #
 # Mirrors the FastAPI/ChromaDB pipeline: retrieve -> relevance gate ->
 # generate (or refuse). Runs with the OpenBMB stack:
@@ -7,7 +7,7 @@
 #   - Generation: MiniCPM5-1B via vLLM/SGLang/Ollama (OpenAI-compatible)
 #   - Vector DB:  Milvus
 #
-# Run:  ultrarag run examples/experiments/ausorganicbot.yaml
+# Run:  ultrarag run examples/experiments/orgstandardsbot.yaml
 # See ultrarag/README.md for the one-time corpus/index setup.
 
 # MCP Server

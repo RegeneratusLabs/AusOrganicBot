@@ -1,4 +1,4 @@
-# AusOrganicBot QA Dataset (SFT)
+# OrgStandardsBot QA Dataset (SFT)
 
 ## What this is
 

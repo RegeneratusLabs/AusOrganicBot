@@ -41,6 +41,12 @@ def main():
               f"embedding: {manifest.embedding_family} | "
               f"sources: {len(manifest.sources)}")
         problems = verify_manifest(DATA_DIR, manifest)
+        for source in manifest.sources:
+            if source.redistribute and not source.license:
+                problems.append(
+                    f"[{manifest.country}/{source.id}] redistribute=true but no "
+                    f"'license' declared — redistribution requires a licence label"
+                )
         if problems:
             exit_code = 1
             for p in problems:

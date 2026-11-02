@@ -1,0 +1,32 @@
+{
+  "country": "eu",
+  "name": "European Union",
+  "language": "en",
+  "embedding_family": "all-minilm",
+  "sources": [
+    {
+      "id": "regulation",
+      "name": "Regulation (EU) 2018/848 on organic production and labelling",
+      "edition": "OJ L 150, 14.6.2018",
+      "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32018R0848",
+      "local_path": "regulation/eu-2018-848.pdf",
+      "sha256": "f669d98980e06d8adf75826aae3eeb99043810aa27043326b421237758a7de14",
+      "status": "active",
+      "effective_date": "2018-06-14",
+      "license": "EU legislation — reuse permitted with attribution",
+      "redistribute": true
+    },
+    {
+      "id": "regulation",
+      "name": "Commission Implementing Regulation (EU) 2021/1165 (authorised products and substances)",
+      "edition": "OJ L 253, 16.7.2021",
+      "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32021R1165",
+      "local_path": "regulation/eu-2021-1165.pdf",
+      "sha256": "d0b3431170891470100866a7a2e41085a69f0ec2fbe38ccf79a4b7f7ca9f3020",
+      "status": "active",
+      "effective_date": "2021-07-16",
+      "license": "EU legislation — reuse permitted with attribution",
+      "redistribute": true
+    }
+  ]
+}

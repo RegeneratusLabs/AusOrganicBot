@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-AusOrganicBot answers compliance questions from regulatory documents. If you
+OrgStandardsBot answers compliance questions from regulatory documents. If you
 find a vulnerability — especially anything that could produce **incorrect or
 fabricated compliance answers**, or expose API keys/user data — please report
 it privately rather than opening a public issue.
@@ -21,7 +21,10 @@ it, and that you not disclose it publicly until a fix is released.
 ## Security design notes
 
 - **No user secrets in the repo.** API keys live in `backend/.env`
-  (gitignored). Never commit `.env` or any standards PDF under `data/`.
+  (gitignored). Never commit `.env` or any standards PDF/generated HTML
+  under `data/` — only the `data/*/manifest.json` metadata files are
+  committed (sources, editions, sha256 pins, licence + redistribution
+  flags).
 - **API hardening.** Set `API_TOKEN` in `.env` to require a bearer token on
   LLM-backed endpoints, and tune `RATE_LIMIT_PER_MINUTE` for your
   deployment. The default rate limit is 30 queries/IP/minute.
@@ -33,6 +36,13 @@ it, and that you not disclose it publicly until a fix is released.
 - **Document integrity.** Country manifests pin sha256 hashes of standards
   PDFs; `scripts/download_docs.py` and `scripts/ingest.py` refuse to
   proceed on mismatch.
+- **Document redistribution is licence-gated.** Standards documents remain
+  the copyright of their issuing bodies. Each manifest source declares its
+  `license` and `redistribute` flag; the full-copy endpoints
+  (`/api/documents/{country}/{source}/pdf`, `/html`, `/page/{page}`) return
+  `403` unless a source is explicitly marked redistributable (CC-BY,
+  Crown/OGL, public domain, etc.). Sources such as the ACO standard
+  ("all rights reserved") are used for retrieval and citation only.
 
 ## Supported versions
 

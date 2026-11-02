@@ -1,4 +1,4 @@
-# AusOrganicBot — Setup Guide
+# OrgStandardsBot — Setup Guide
 
 Open-source AI Q&A for Australian organic and biodynamic certification. Uses RAG (Retrieval-Augmented Generation) to answer questions by searching actual standards documents.
 
@@ -33,7 +33,7 @@ Works with any OpenAI-compatible API. Examples:
 | Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
 | Ollama (local, free) | `http://localhost:11434/v1` | `qwen2.5:0.5b` |
 
-### Local model option (OpenBMB MiniCPM5-1B via Ollama) — tested
+### Local model option (OpenBMB MiniCPM5-1B via Ollama) — the default
 
 Fully offline, no API key, on OpenBMB's 1B-class SOTA model:
 
@@ -42,7 +42,8 @@ Fully offline, no API key, on OpenBMB's 1B-class SOTA model:
 ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF
 
 # Create the bot-configured model (template verified working)
-ollama create ausorganicbot-minicpm5 -f /tmp/Modelfile.local
+ollama create orgstandardsbot -f finetune/Modelfile          # fine-tuned reader
+ollama create orgstandardsbot-minicpm5 -f finetune/Modelfile.base  # base model
 #   — see finetune/README.md for the Modelfile; the MiniCPM5 template +
 #     stop tokens are required, or generation degenerates
 ```
@@ -52,8 +53,9 @@ Then in `backend/.env`:
 ```bash
 LLM_API_KEY=
 LLM_BASE_URL=http://localhost:11434/v1
-LLM_MODEL=ausorganicbot-minicpm5
+LLM_MODEL=orgstandardsbot
 THINKING_PARAM=off
+EMBEDDING_FAMILY=minicpm   # MiniCPM-Embedding-Light (OpenBMB) — then re-ingest
 ```
 
 **Verified end-to-end**: "How wide should a buffer zone be for broadacre
@@ -110,7 +112,7 @@ This will:
 1. Validate the country manifest (schema + sha256 integrity — hard fail on mismatch)
 2. Load all active PDFs from `data/<cc>/<source>/` (superseded editions are skipped)
 3. Split into chunks (512 chars with overlap, minimum 20 chars)
-4. Generate embeddings via all-MiniLM-L6-v2 (runs locally)
+4. Generate embeddings via OpenBMB MiniCPM-Embedding-Light (`EMBEDDING_FAMILY=minicpm`, 1024-dim) — runs locally; first run downloads the model
 5. Store in a per-country ChromaDB collection
 
 Expected output: `✓ Ingestion complete! Total chunks: ~2000`
@@ -128,9 +130,13 @@ python scripts/add_country.py --country nz --name "New Zealand"
 
 Then:
 1. Edit `data/nz/manifest.json` — for each standards body, fill in `id`, `name`, `edition`, `url` or `local_path`, `status: "active"`
-2. Place PDFs under `data/nz/<source-id>/` (or set `url` and run `scripts/download_docs.py --country nz`)
-3. `python scripts/update_hashes.py --country nz` — pin sha256 hashes
-4. `python scripts/ingest.py --country nz`
+2. Per source, set `license` (the document's actual licence) and `redistribute`
+   — full copies (PDF / HTML / page endpoints) are served **only** when
+   `redistribute: true`. Leave `false` for "all rights reserved" documents
+   (e.g. the ACO standard); retrieval and citation still work.
+3. Place PDFs under `data/nz/<source-id>/` (or set `url` and run `scripts/download_docs.py --country nz`)
+4. `python scripts/update_hashes.py --country nz` — pin sha256 hashes
+5. `python scripts/ingest.py --country nz`
 
 The country appears in the chat UI's selector automatically. Each country can
 override `relevance_threshold` and `embedding_family` in its manifest.
@@ -168,11 +174,13 @@ The frontend uses the streaming endpoint by default. Answers appear token-by-tok
 
 ## RAG Relevance Gating
 
-Not every query hits the vector store. The pipeline checks if the top search result scores above **0.50** relevance:
-- **≥ 0.50**: RAG path — LLM answers from document excerpts with source citations
-- **< 0.50**: Conversational path — LLM responds naturally (greetings, off-topic, thanks)
+The pipeline checks the top retrieval score against the relevance threshold (**0.40** default, per-country overridable):
 
-This prevents the "I don't have that information" cold response for non-compliance questions.
+- **≥ 0.40**: RAG path — LLM answers from document excerpts with source citations
+- **< 0.40 but compliance-shaped**: RAG path with a low-confidence note — the model answers if the excerpts genuinely cover the question, otherwise declines warmly with the closest related guidance
+- **< 0.40 and not compliance-shaped** (greetings, off-topic, thanks): Conversational path — the model responds naturally
+
+Multi-turn: the last few turns of the conversation are included in the prompt, so follow-ups like "and how wide?" resolve against earlier context.
 
 ## Sample Questions
 

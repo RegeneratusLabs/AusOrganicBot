@@ -1,5 +1,5 @@
 #!/bin/bash
-# AusOrganicBot — One-Click Startup Script
+# OrgStandardsBot — One-Click Startup Script
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -8,7 +8,7 @@ cd "$SCRIPT_DIR"
 PORT="${PORT:-8080}"
 
 echo "============================================================"
-echo "🌱 AusOrganicBot — Starting..."
+echo "🌱 OrgStandardsBot — Starting..."
 echo "============================================================"
 echo ""
 
@@ -65,7 +65,7 @@ echo ""
 # Start backend
 echo "[1/2] Starting backend on http://localhost:${PORT}..."
 cd "$SCRIPT_DIR/backend"
-python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port "$PORT" > /tmp/ausorganicbot-backend.log 2>&1 &
+python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port "$PORT" > /tmp/orgstandardsbot-backend.log 2>&1 &
 BACKEND_PID=$!
 
 echo "  Waiting for backend..."
@@ -79,7 +79,7 @@ done
 
 if ! curl -sf "http://localhost:${PORT}/health" > /dev/null 2>&1; then
     echo "  ✗ Backend failed to start"
-    echo "  Check logs: /tmp/ausorganicbot-backend.log"
+    echo "  Check logs: /tmp/orgstandardsbot-backend.log"
     kill $BACKEND_PID 2>/dev/null
     exit 1
 fi
@@ -87,14 +87,14 @@ fi
 # Start frontend
 echo "[2/2] Starting frontend on http://localhost:3000..."
 cd "$SCRIPT_DIR/frontend"
-npm run dev > /tmp/ausorganicbot-frontend.log 2>&1 &
+npm run dev > /tmp/orgstandardsbot-frontend.log 2>&1 &
 FRONTEND_PID=$!
 
 sleep 5
 
 echo ""
 echo "============================================================"
-echo "✅ AusOrganicBot is running!"
+echo "✅ OrgStandardsBot is running!"
 echo "============================================================"
 echo ""
 echo "  🌐 App:       http://localhost:3000"
@@ -104,7 +104,7 @@ echo ""
 echo "  Backend PID:  $BACKEND_PID"
 echo "  Frontend PID: $FRONTEND_PID"
 echo ""
-echo "  Logs: /tmp/ausorganicbot-backend.log, /tmp/ausorganicbot-frontend.log"
+echo "  Logs: /tmp/orgstandardsbot-backend.log, /tmp/orgstandardsbot-frontend.log"
 echo ""
 echo "Press Ctrl+C to stop all services"
 echo "============================================================"

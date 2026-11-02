@@ -1,17 +1,17 @@
-# AusOrganicBot fine-tuned reader — Ollama Modelfile
+# OrgStandardsBot fine-tuned reader — Ollama Modelfile
 #
 # Template verified working with MiniCPM5-1B (Q4_K_M GGUF, Ollama).
-# MiniCPM5 is a hybrid-reasoning model: it emits a <think> block before the
+# MiniCPM5 is a hybrid-reasoning model: it emits a  thinking block before the
 # answer. The fine-tune is SFT'd in no-think format (see train.py), which
 # suppresses the reasoning block.
 #
 # 1. Export the fine-tune: finetune/.venv/bin/python finetune/export_gguf.py \
 #        --model-dir finetune/runs/ausorganicbot-minicpm5/merged \
 #        --output finetune/runs/ausorganicbot-minicpm5/ausorganicbot-minicpm5.Q4_K_M.gguf
-# 2. From the repo root: ollama create ausorganicbot -f finetune/Modelfile
+# 2. From the repo root: ollama create orgstandardsbot -f finetune/Modelfile
 # 3. Point the app at it (backend/.env):
 #        LLM_BASE_URL=http://localhost:11434/v1
-#        LLM_MODEL=ausorganicbot
+#        LLM_MODEL=orgstandardsbot
 #        THINKING_PARAM=off
 #
 # (Ollama resolves FROM paths relative to the Modelfile's own directory.)
@@ -30,8 +30,8 @@ PARAMETER stop <|im_start|>
 PARAMETER stop <|im_end|>
 PARAMETER stop <|im_start|>user
 
-SYSTEM """You are AusOrganicBot, an assistant for organic certification queries. Answer only from the provided context. When the context contains the answer, be precise and cite section numbers. If the context does NOT contain the answer, say exactly: "I don't see that covered in the standards documents. Please consult your certifier.\""""
+SYSTEM """You are OrgStandardsBot, a warm, friendly assistant for organic and biodynamic certification queries. Answer only from the provided context. When the context contains the answer, be precise and cite section numbers. If the context does NOT contain the answer, say so honestly but warmly: offer the closest related guidance you have, and suggest the farmer or certifier double-check with their certifier for their specific situation. Be conversational and approachable — never robotic — and you may invite a follow-up question."""
 
-PARAMETER temperature 0.1
+PARAMETER temperature 0.2
 PARAMETER top_p 0.95
 PARAMETER num_ctx 4096

@@ -13,7 +13,7 @@ tags:
 library_name: transformers
 ---
 
-# AusOrganicBot-Reader (MiniCPM5-1B)
+# OrgStandardsBot-Reader (MiniCPM5-1B)
 
 Fine-tuned [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B) reader
 for organic certification Q&A. Answers compliance questions **only from
@@ -22,11 +22,11 @@ template when the context does not cover the question.
 
 ## Usage
 
-The model expects the AusOrganicBot RAG prompt template as the user turn
+The model expects the OrgStandardsBot RAG prompt template as the user turn
 (the same string the FastAPI app sends):
 
 ```
-You are AusOrganicBot, an assistant for organic certification queries.
+You are OrgStandardsBot, an assistant for organic certification queries.
 
 Applicable standards (answer only from these):
 - ...
@@ -49,7 +49,7 @@ and point any OpenAI-compatible client at it. Recommended sampling:
 ## Training
 
 - **Base:** `openbmb/MiniCPM5-1B` (Apache-2.0)
-- **Data:** AusOrganicBot Standards QA dataset (CC-BY-4.0) — paraphrased
+- **Data:** OrgStandardsBot Standards QA dataset (CC-BY-4.0) — paraphrased
   QA pairs plus chunk-level refusal negatives; see `dataset/` in the source
   repository
 - **Method:** QLoRA (4-bit, r=8–16), SFT with the production RAG prompt

@@ -1,7 +1,7 @@
-# AusOrganicBot frontend (Next.js standalone)
+# OrgStandardsBot frontend (Next.js standalone)
 #
-# Build:  docker build -t ausorganicbot-frontend -f frontend/Dockerfile frontend
-# Run:    docker run -p 3000:3000 ausorganicbot-frontend
+# Build:  docker build -t orgstandardsbot-frontend -f frontend/Dockerfile frontend
+# Run:    docker run -p 3000:3000 orgstandardsbot-frontend
 
 FROM node:20-alpine AS deps
 WORKDIR /app

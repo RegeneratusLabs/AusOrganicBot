@@ -28,7 +28,7 @@ Steps to reproduce:
 - Provider: [e.g. DeepSeek/OpenCode Go, OpenAI, Ollama local model]
 
 **Logs**
-Paste the backend log (`/tmp/ausorganicbot-backend.log`) or any error output.
+Paste the backend log (`/tmp/orgstandardsbot-backend.log`) or any error output.
 
 **Screenshots**
 If applicable, add a screenshot of the UI.

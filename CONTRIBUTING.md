@@ -1,14 +1,14 @@
-# Contributing to AusOrganicBot
+# Contributing to OrgStandardsBot
 
-Thanks for your interest in AusOrganicBot! This project aims to make Australian organic certification knowledge accessible to farmers, producers, and certifiers. Here's how to help.
+Thanks for your interest in OrgStandardsBot! This project aims to make organic certification knowledge accessible to farmers, producers, and certifiers. Here's how to help.
 
 ## Getting Started
 
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/your-username/AusOrganicBot.git
-   cd AusOrganicBot
+   git clone https://github.com/your-username/OrgStandardsBot.git
+   cd OrgStandardsBot
    ```
 3. Follow [SETUP.md](SETUP.md) to get a local instance running
 4. Create a feature branch: `git checkout -b feat/your-feature`

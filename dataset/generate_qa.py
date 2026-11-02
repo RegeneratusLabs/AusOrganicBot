@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate the SFT dataset for AusOrganicBot from the vector store chunks.
+Generate the SFT dataset for OrgStandardsBot from the vector store chunks.
 
 For each chunk the LLM produces:
   - 1-2 "positive" pairs: a farmer-style question whose answer IS supported

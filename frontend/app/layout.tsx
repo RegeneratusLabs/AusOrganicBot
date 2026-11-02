@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AusOrganicBot — Organic Certification Q&A",
-  description: "AI-powered Q&A for Australian organic and biodynamic certification standards",
+  title: "OrgStandardsBot — Organic Certification Q&A",
+  description: "AI-powered Q&A for organic and biodynamic certification standards",
 };
 
 export default function RootLayout({

@@ -4,8 +4,8 @@ Export a fine-tuned (merged) model to GGUF Q4_K_M for Ollama / llama.cpp.
 
 Usage:
     finetune/.venv/bin/python finetune/export_gguf.py \
-        --model-dir finetune/runs/ausorganicbot-minicpm5/merged \
-        --output finetune/runs/ausorganicbot-minicpm5/ausorganicbot-minicpm5.Q4_K_M.gguf
+        --model-dir finetune/runs/orgstandardsbot-minicpm5/merged \
+        --output finetune/runs/orgstandardsbot-minicpm5/orgstandardsbot-minicpm5.Q4_K_M.gguf
 
 Requires llama.cpp — pass --llama-cpp <dir> or it clones the repo on first
 use into finetune/llama.cpp.
@@ -59,7 +59,7 @@ def main():
 
     f16.unlink(missing_ok=True)
     print(f"\nGGUF ready: {args.output}")
-    print("Ollama:   ollama create ausorganicbot -f finetune/Modelfile")
+    print("Ollama:   ollama create orgstandardsbot -f finetune/Modelfile")
     print("llama.cpp: llama-server -m <gguf> --port 11434")
 
 

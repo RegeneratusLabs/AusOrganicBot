@@ -35,6 +35,10 @@ export interface CountryStandard {
   id: string;
   name: string;
   edition: string;
+  /** Document licence (e.g. 'CC-BY-4.0', 'all rights reserved') or null. */
+  license?: string | null;
+  /** Whether full copies (PDF/HTML) may be served by this deployment. */
+  redistributable?: boolean;
 }
 
 export interface CountryInfo {

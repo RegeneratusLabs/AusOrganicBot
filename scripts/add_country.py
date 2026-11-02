@@ -66,6 +66,9 @@ def main():
                 "sha256": "run scripts/update_hashes.py after placing the file",
                 "status": "active",
                 "effective_date": "2026-01-01",
+                "license": "all rights reserved — set to the document's actual licence "
+                          "(e.g. CC-BY-4.0, OGL-3.0, public domain)",
+                "redistribute": false
             }
         ],
     }
@@ -74,10 +77,12 @@ def main():
     print("✓ Created", path)
     print("  Next steps:")
     print(f"  1. Edit {path} — list each standards body + edition under 'sources'")
-    print(f"  2. Place PDFs under data/{country}/<source-id>/ (or set 'url' and run download_docs.py)")
-    print(f"  3. Set real sha256 per file (python scripts/update_hashes.py --country {country})")
-    print(f"  4. Ingest: python scripts/ingest.py --country {country}")
-    print("  5. The country appears in the UI selector automatically")
+    print(f"  2. Set 'license' (actual licence) and 'redistribute' per source — full copies")
+    print(f"     (PDF/HTML endpoints) are served ONLY when redistribute: true")
+    print(f"  3. Place PDFs under data/{country}/<source-id>/ (or set 'url' and run download_docs.py)")
+    print(f"  4. Set real sha256 per file (python scripts/update_hashes.py --country {country})")
+    print(f"  5. Ingest: python scripts/ingest.py --country {country}")
+    print("  6. The country appears in the UI selector automatically")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,32 @@
+{
+  "country": "nz",
+  "name": "New Zealand",
+  "language": "en",
+  "embedding_family": "all-minilm",
+  "sources": [
+    {
+      "id": "act",
+      "name": "Organic Products and Production Act 2023",
+      "edition": "2023 No 14 (as at 10 July 2026)",
+      "url": "https://www.legislation.govt.nz/act/public/2023/0014/latest/whole.pdf",
+      "local_path": "act/organic-products-and-production-act-2023.pdf",
+      "sha256": "b80bf102a8843c6aae8a6f34951ebf3ebf86acb8667120cc7dcd5c5c452df782",
+      "status": "active",
+      "effective_date": "2023-11-24",
+      "license": "NZ Crown copyright — reproduction permitted",
+      "redistribute": true
+    },
+    {
+      "id": "regulation",
+      "name": "Organic Products and Production Regulations 2025",
+      "edition": "2025/196",
+      "url": "https://www.legislation.govt.nz/regulation/public/2025/0196/latest/whole.pdf",
+      "local_path": "regulation/organic-products-and-production-regulations-2025.pdf",
+      "sha256": "53a11903fb84a2cf9559826adc7e39578fee8878211f44248db6c760fb806d3e",
+      "status": "active",
+      "effective_date": "2025-12-01",
+      "license": "NZ Crown copyright — reproduction permitted",
+      "redistribute": true
+    }
+  ]
+}

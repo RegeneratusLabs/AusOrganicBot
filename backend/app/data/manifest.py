@@ -12,7 +12,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-logger = logging.getLogger("ausorganicbot")
+logger = logging.getLogger("orgstandardsbot")
 
 MANIFEST_FILENAME = "manifest.json"
 VECTORSTORE_DIRNAME = "vectorstore"
@@ -27,6 +27,22 @@ class ManifestSource(BaseModel):
     sha256: Optional[str] = None
     status: str = Field(default="active", pattern=r"^(active|superseded)$")
     effective_date: Optional[str] = None
+    license: Optional[str] = Field(
+        default=None,
+        description=(
+            "Document licence, e.g. 'CC-BY-4.0', 'OGL-3.0', 'public domain', or "
+            "'all rights reserved'. Surfaced in /api/status and the document viewer."
+        ),
+    )
+    redistribute: bool = Field(
+        default=False,
+        description=(
+            "Whether this deployment may serve full copies (PDF / full HTML) of the "
+            "document. Defaults to False: retrieval + citation always work, but the "
+            "download/view-document endpoints return 403 unless a source declares "
+            "redistribution rights (e.g. CC-BY, Crown/OGL, public domain)."
+        ),
+    )
 
 
 class CountryManifest(BaseModel):

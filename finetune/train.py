@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Fine-tune MiniCPM5-1B (OpenBMB) as the AusOrganicBot RAG reader via QLoRA.
+Fine-tune MiniCPM5-1B (OpenBMB) as the OrgStandardsBot RAG reader via QLoRA.
 
 The training format is aligned 1:1 with production inference: the user turn
 is the app's own RAG prompt template (with the "Answer:" suffix stripped),
@@ -24,12 +24,12 @@ Usage:
         --data dataset/qa_au_train.jsonl dataset/qa_us_train.jsonl \\
                dataset/qa_nz_train.jsonl dataset/qa_eu_train.jsonl \\
                dataset/qa_uk_train.jsonl \\
-        --output finetune/runs/ausorganicbot-minicpm5 \\
+        --output finetune/runs/orgstandardsbot-minicpm5 \\
         --epochs 2 --max-steps 0
 
     # Single country
     finetune/.venv/bin/python finetune/train.py --data dataset/qa_au_train.jsonl \\
-        --output finetune/runs/ausorganicbot-minicpm5 \\
+        --output finetune/runs/orgstandardsbot-minicpm5 \\
         --epochs 2 --max-steps 0
 
 Smoke test (proves the pipeline on any machine):
@@ -52,7 +52,7 @@ MODEL_ID = "openbmb/MiniCPM5-1B"
 USER_TEMPLATE, _, _ = RAG_PROMPT.rpartition("Answer:")
 
 SYSTEM_MESSAGE = (
-    "You are AusOrganicBot, an assistant for organic certification queries. "
+    "You are OrgStandardsBot, an assistant for organic certification queries. "
     "Answer only from the provided context. When the context contains the answer, "
     "be precise and cite section numbers. If the context does NOT contain the "
     "answer, say exactly: "
@@ -126,7 +126,7 @@ def make_dataset(records, tokenizer, standards_block, max_seq_length):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="QLoRA fine-tune MiniCPM5-1B as AusOrganicBot")
+    parser = argparse.ArgumentParser(description="QLoRA fine-tune MiniCPM5-1B as OrgStandardsBot")
     parser.add_argument("--data", required=True, nargs="+",
                         help="Path(s) to qa_*_train.jsonl — pass multiple for multi-country training")
     parser.add_argument("--output", required=True, help="Output dir for the adapter + merged model")
@@ -228,7 +228,7 @@ def main():
     model.save_pretrained_merged(out / "merged", tokenizer, save_method="merged_16bit")
     print(f"\nDone. Adapter: {out / 'adapter'}  Merged: {out / 'merged'}")
     print(f"Next: finetune/.venv/bin/python finetune/export_gguf.py "
-          f"--model-dir {out / 'merged'} --output {out / 'ausorganicbot-minicpm5.Q4_K_M.gguf'}")
+          f"--model-dir {out / 'merged'} --output {out / 'orgstandardsbot-minicpm5.Q4_K_M.gguf'}")
 
 
 if __name__ == "__main__":

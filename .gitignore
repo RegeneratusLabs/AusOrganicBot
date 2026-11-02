@@ -23,9 +23,15 @@ out/
 .env.local
 .env.*.local
 
-# ChromaDB vector store + standards documents (fetched by scripts/download_docs.py)
+# Standards PDFs, generated HTML, and vector stores are fetched/generated at
+# provisioning time and are never committed (see README "Data licensing").
+# Exception: data/<cc>/manifest.json IS committed — it is curated project
+# metadata (sources, editions, sha256 pins, licence + redistribution flags).
 # Root-anchored: backend/app/data/ is source code and must stay tracked.
-/data/
+/data/*
+!/data/*/
+/data/*/*
+!/data/*/manifest.json
 
 # IDE
 .vscode/
@@ -68,3 +74,12 @@ stress_report*.json
 /finetune/runs/
 /finetune/llama.cpp/
 unsloth_compiled_cache/
+
+# Local HF model cache (workspace-persistent; never commit)
+.hf_cache/
+
+# Generated eval output dumps (regenerable — root-level scratch)
+/eval_retrieval_minicpm.txt
+/replay_results.txt
+/urea_test_result.txt
+/judge_probe_out.txt

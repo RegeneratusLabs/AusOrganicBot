@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Document re-indexing script with HTML generation for AusOrganicBot.
+Document re-indexing script with HTML generation for OrgStandardsBot.
 
 Re-indexes PDFs for a country with page tracking and HTML versions.
 
@@ -21,7 +21,7 @@ from app.config import DATA_DIR
 
 def reindex_country(country: str, generate_html: bool = True) -> bool:
     print("=" * 60)
-    print(f"AusOrganicBot - Document Re-Indexing ({country.upper()})")
+    print(f"OrgStandardsBot - Document Re-Indexing ({country.upper()})")
     print("=" * 60)
     print()
 
@@ -81,7 +81,7 @@ def list_documents(country: str = "au"):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Re-index documents for AusOrganicBot")
+    parser = argparse.ArgumentParser(description="Re-index documents for OrgStandardsBot")
     parser.add_argument("--country", default="au", help="Country code (default: au)")
     parser.add_argument("--no-html", action="store_true", help="Skip HTML generation")
     parser.add_argument("--list", action="store_true", help="List indexed documents")

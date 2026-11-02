@@ -2,7 +2,7 @@ import logging
 from sentence_transformers import SentenceTransformer
 from app.config import EMBEDDING_MODEL, EMBEDDING_FAMILY
 
-logger = logging.getLogger("ausorganicbot")
+logger = logging.getLogger("orgstandardsbot")
 
 MINICPM_QUERY_INSTRUCTION = "Query: "
 MINICPM_TRUST_REMOTE_CODE = True

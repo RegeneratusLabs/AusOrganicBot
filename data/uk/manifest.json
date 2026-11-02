@@ -1,0 +1,44 @@
+{
+  "country": "uk",
+  "name": "United Kingdom",
+  "language": "en",
+  "embedding_family": "all-minilm",
+  "sources": [
+    {
+      "id": "retained",
+      "name": "Council Regulation (EC) No 834/2007 on organic production and labelling (retained EU law)",
+      "edition": "2007 (as retained)",
+      "url": "https://www.legislation.gov.uk/eur/2007/834/made/data.htm",
+      "local_path": "retained/ec-834-2007.pdf",
+      "sha256": "d9abe246a93712488ebe19ded993789f875063d529137ceab6352eca0fb439ec",
+      "status": "active",
+      "effective_date": "2007-06-28",
+      "license": "OGL-3.0 (UK Crown copyright)",
+      "redistribute": true
+    },
+    {
+      "id": "retained",
+      "name": "Commission Regulation (EC) No 889/2008 laying down detailed rules (retained EU law)",
+      "edition": "2008 (as retained)",
+      "url": "https://www.legislation.gov.uk/eur/2008/889/made/data.htm",
+      "local_path": "retained/ec-889-2008.pdf",
+      "sha256": "b07a681d25e96621c2c69af4e5d11bc776ad89fe850e85c08371883bce46fe71",
+      "status": "active",
+      "effective_date": "2008-09-05",
+      "license": "OGL-3.0 (UK Crown copyright)",
+      "redistribute": true
+    },
+    {
+      "id": "si",
+      "name": "The Organic Products Regulations 2009",
+      "edition": "SI 2009/842",
+      "url": "https://www.legislation.gov.uk/uksi/2009/842/data.htm",
+      "local_path": "si/organic-products-regulations-2009.pdf",
+      "sha256": "2a12b7be76ac39a3aaa4a558ede089e649f1449801d7e88baaedf8d4b355af57",
+      "status": "active",
+      "effective_date": "2009-04-21",
+      "license": "OGL-3.0 (UK Crown copyright)",
+      "redistribute": true
+    }
+  ]
+}

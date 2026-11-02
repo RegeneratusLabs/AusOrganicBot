@@ -1,0 +1,53 @@
+{
+  "country": "au",
+  "name": "Australia",
+  "language": "en",
+  "embedding_family": "all-minilm",
+  "sources": [
+    {
+      "id": "national",
+      "name": "National Standard for Organic and Bio-Dynamic Produce",
+      "edition": "Edition 3.8",
+      "url": "https://www.agriculture.gov.au/organic-biodynamic/standards",
+      "local_path": "national/national-standard-edition-3.8.pdf",
+      "sha256": "b813e08306a51bf18633e127e93699a93d26e13fae9980671dcc6c87a299dc7b",
+      "status": "active",
+      "effective_date": "2021-10-01",
+      "license": "CC-BY-4.0 (Commonwealth of Australia)",
+      "redistribute": true
+    },
+    {
+      "id": "national",
+      "name": "National Standard for Organic and Bio-Dynamic Produce",
+      "edition": "Edition 3.7",
+      "url": "https://www.agriculture.gov.au/organic-biodynamic/standards",
+      "local_path": "national/national-standard-edition.pdf",
+      "sha256": "fb924b1a8368dd5af2b10df90c26186e4028774148c7b1cadb0d97e2519ce53d",
+      "status": "superseded",
+      "license": "CC-BY-4.0 (Commonwealth of Australia)",
+      "redistribute": true
+    },
+    {
+      "id": "aco",
+      "name": "Australian Certified Organic Standard",
+      "edition": "2023",
+      "url": "https://aco.net.au/standards/",
+      "local_path": "aco/australian-certified-organic-standard-2023.pdf",
+      "sha256": "659fa2669a0ab79976742541ea5981e147da3d90c02615613e0c70a5a24495e4",
+      "status": "active",
+      "license": "All rights reserved (written permission required)",
+      "redistribute": false
+    },
+    {
+      "id": "nasaa",
+      "name": "NASAA Organic & Biodynamic Standard",
+      "edition": "2016",
+      "url": "https://nasaaorganic.org.au/certification/standards/",
+      "local_path": "nasaa/NASAA-Organic-Standard-2016.pdf",
+      "sha256": "8c3bceedd1ff4e9b9105ab0d7b42f95906e710ef7db28755a5c4e21ba3ec1bb4",
+      "status": "active",
+      "license": "Unconfirmed — treat as all rights reserved",
+      "redistribute": false
+    }
+  ]
+}
