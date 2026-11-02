@@ -15,8 +15,8 @@ Ask questions about organic farming standards, input approvals, buffer zones, re
 ### 1. Clone and configure
 
 ```bash
-git clone <repo-url>   # e.g. https://github.com/your-org/OrgStandardsBot
-cd OrgStandardsBot/backend
+git clone https://github.com/RegeneratusLabs/orgstandardsbot
+cd orgstandardsbot/backend
 cp .env.example .env
 # Edit .env and set your LLM_API_KEY, LLM_BASE_URL, and LLM_MODEL
 ```
